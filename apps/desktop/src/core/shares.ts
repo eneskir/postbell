@@ -34,7 +34,18 @@ export const formatsOf = (n: Network): readonly Platform[] => FORMATS.filter((p)
 
 export type Times = Partial<Readonly<Record<Platform, TimeOfDay>>>;
 
-export type Account = {
+export const TWO_STEP = ["none", "app", "sms", "email", "key"] as const;
+export type TwoStep = (typeof TWO_STEP)[number];
+
+// The fields that are not secret; a field the user left empty is absent. Passwords and backup codes live in the vault.
+export type AccountDetails = {
+  readonly email?: string;
+  readonly twoStep?: TwoStep;
+  readonly recoveryEmail?: string;
+  readonly note?: string;
+};
+
+export type Account = AccountDetails & {
   readonly id: AccountId;
   readonly brand: BrandId;
   readonly network: Network;
@@ -50,7 +61,15 @@ export function accountFor(accounts: readonly Account[], brand: BrandId, platfor
   return same.find((a) => a.language === language) ?? null;
 }
 
-export type ShareRecord = { readonly share: ShareId; readonly status: "done" | "skipped"; readonly at: LocalMs };
+// `title` and `planned` are copied from the share when it is marked, so Geçmiş can still name a share whose package is
+// gone; records written before store version 2 have neither.
+export type ShareRecord = {
+  readonly share: ShareId;
+  readonly status: "done" | "skipped";
+  readonly at: LocalMs;
+  readonly title?: string;
+  readonly planned?: PlannedAt;
+};
 
 export type PlannedAt = { readonly kind: "at"; readonly at: LocalMs } | { readonly kind: "unscheduled"; readonly date: LocalDate };
 
@@ -86,6 +105,8 @@ export type DeriveInput = {
   readonly missingFiles: ReadonlySet<FileKey>;
   readonly now: LocalMs;
 };
+
+export const recordOf = (s: Share, status: ShareRecord["status"], at: LocalMs): ShareRecord => ({ share: s.id, status, at, title: s.content.title, planned: s.plannedAt });
 
 export function statusOf(planned: PlannedAt, record: ShareRecord | undefined, now: LocalMs): ShareStatus {
   if (record) return { kind: record.status, at: record.at };

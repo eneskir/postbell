@@ -1,9 +1,11 @@
 import { LANGUAGES, type Platform } from "./manifest.ts";
 import { validate, type Schema } from "./schema.ts";
-import { FORMATS, formatsOf, NETWORKS, type Account, type AccountId, type BrandId, type Network, type ShareId, type ShareRecord, type Times } from "./shares.ts";
-import { formatLocal, formatTime, parseLocal, parseTime, TIME_PATTERN, type TimeOfDay } from "./time.ts";
+import { FORMATS, formatsOf, NETWORKS, TWO_STEP, type Account, type AccountDetails, type AccountId, type BrandId, type Network, type PlannedAt, type ShareId, type ShareRecord, type Times, type TwoStep } from "./shares.ts";
+import { formatLocal, formatTime, parseDate, parseLocal, parseTime, TIME_PATTERN, type TimeOfDay } from "./time.ts";
 
-export const STORE_VERSION = 1;
+// Version 2 added the account details (e-mail, 2-step type, recovery e-mail, note) and the title and planned time on
+// records. A version 1 file reads as version 2 with those fields absent; the next save writes version 2.
+export const STORE_VERSION = 2;
 
 export type Brand = {
   readonly id: BrandId;
@@ -21,10 +23,13 @@ export type StoreFile = {
   readonly groups: readonly Group[];
   readonly accounts: readonly Account[];
   readonly records: readonly ShareRecord[];
-  // No app setting is stored yet; the empty object is part of the version 1 format.
+  // No app setting is stored yet; the empty object is part of the format since version 1.
   readonly settings: Readonly<Record<string, never>>;
   readonly sidebar: Sidebar;
 };
+
+export const EMAIL_MAX = 254;
+export const NOTE_MAX = 500;
 
 export const SIDEBAR_MIN = 224;
 export const SIDEBAR_DEFAULT = 240;
@@ -49,8 +54,27 @@ const obj = (properties: Record<string, Schema>, required = Object.keys(properti
   additionalProperties: false,
 });
 
-const storeSchemaV1: Schema = obj({
-  version: { type: "integer", const: 1 },
+const LOCAL_MINUTE = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$";
+const LOCAL_DAY = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$";
+
+const accountV1: Record<string, Schema> = {
+  id: str(80, { pattern: SLUG }),
+  brand: str(40, { pattern: SLUG }),
+  network: { type: "string", enum: NETWORKS },
+  handle: str(100),
+  language: { type: "string", enum: LANGUAGES },
+  times: obj(Object.fromEntries(FORMATS.map((p) => [p, { type: "string", pattern: TIME_PATTERN }])), []),
+};
+const accountV2: Record<string, Schema> = { ...accountV1, email: str(EMAIL_MAX), twoStep: { type: "string", enum: TWO_STEP }, recoveryEmail: str(EMAIL_MAX), note: str(NOTE_MAX) };
+const recordV1: Record<string, Schema> = {
+  share: str(200, { pattern: "^[a-z0-9-]+/[a-z0-9-]+/[a-z-]+$" }),
+  status: { type: "string", enum: ["done", "skipped"] },
+  at: { type: "string", pattern: LOCAL_MINUTE },
+};
+const recordV2: Record<string, Schema> = { ...recordV1, title: str(300), planned: { type: "string", pattern: `${LOCAL_MINUTE}|${LOCAL_DAY}` } };
+
+const storeSchema = (version: 1 | 2): Schema => obj({
+  version: { type: "integer", const: version },
   brands: {
     type: "array",
     items: obj({
@@ -64,25 +88,8 @@ const storeSchemaV1: Schema = obj({
     type: "array",
     items: obj({ id: str(40, { pattern: SLUG }), name: str(80), open: { type: "boolean" }, brands: { type: "array", items: str(40, { pattern: SLUG }) } }),
   },
-  accounts: {
-    type: "array",
-    items: obj({
-      id: str(80, { pattern: SLUG }),
-      brand: str(40, { pattern: SLUG }),
-      network: { type: "string", enum: NETWORKS },
-      handle: str(100),
-      language: { type: "string", enum: LANGUAGES },
-      times: obj(Object.fromEntries(FORMATS.map((p) => [p, { type: "string", pattern: TIME_PATTERN }])), []),
-    }),
-  },
-  records: {
-    type: "array",
-    items: obj({
-      share: str(200, { pattern: "^[a-z0-9-]+/[a-z0-9-]+/[a-z-]+$" }),
-      status: { type: "string", enum: ["done", "skipped"] },
-      at: { type: "string", pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$" },
-    }),
-  },
+  accounts: { type: "array", items: version === 1 ? obj(accountV1) : obj(accountV2, Object.keys(accountV1)) },
+  records: { type: "array", items: version === 1 ? obj(recordV1) : obj(recordV2, Object.keys(recordV1)) },
   settings: obj({}, []),
   sidebar: obj({
     collapsed: { type: "boolean" },
@@ -109,14 +116,16 @@ export function parseStoreText(text: string | null): StoreState {
   }
   const version = typeof raw === "object" && raw !== null ? (raw as { version?: unknown }).version : undefined;
   if (typeof version === "number" && Number.isInteger(version) && version > STORE_VERSION) return { kind: "newer-version", version };
-  const v = validate(storeSchemaV1, raw);
+  const v = validate(storeSchema(version === 1 ? 1 : 2), raw);
   if (v) return { kind: "unreadable", reason: "invalid-shape", path: v.path, rule: v.rule };
-  const r = raw as RawStoreV1;
+  const r = raw as RawStore;
   const records: ShareRecord[] = [];
   for (const [i, rec] of r.records.entries()) {
     const at = parseLocal(rec.at);
     if (at === null) return { kind: "unreadable", reason: "invalid-shape", path: `records[${i}].at`, rule: "calendar" };
-    records.push({ share: rec.share as ShareId, status: rec.status, at });
+    const planned = rec.planned === undefined ? undefined : parsePlanned(rec.planned);
+    if (planned === null) return { kind: "unreadable", reason: "invalid-shape", path: `records[${i}].planned`, rule: "calendar" };
+    records.push({ share: rec.share as ShareId, status: rec.status, at, ...(rec.title === undefined ? {} : { title: rec.title }), ...(planned ? { planned } : {}) });
   }
   const brands: Brand[] = [];
   for (const [i, b] of r.brands.entries()) {
@@ -145,7 +154,7 @@ export function parseStoreText(text: string | null): StoreState {
       if (!own.includes(p as Platform)) return { kind: "unreadable", reason: "invalid-shape", path: `accounts[${i}].times.${p}`, rule: "network" };
       times[p as Platform] = parseTime(t) as TimeOfDay;
     }
-    accounts.push({ id: a.id as AccountId, brand: a.brand as BrandId, network: a.network, handle: a.handle, language: a.language, times });
+    accounts.push({ id: a.id as AccountId, brand: a.brand as BrandId, network: a.network, handle: a.handle, language: a.language, times, ...detailsOf(a) });
   }
   for (const [i, b] of r.sidebar.openBrands.entries())
     if (!known.has(b)) return { kind: "unreadable", reason: "invalid-shape", path: `sidebar.openBrands[${i}]`, rule: "brand-ref" };
@@ -163,13 +172,36 @@ export function parseStoreText(text: string | null): StoreState {
   };
 }
 
-type RawStoreV1 = {
+// Version 1 is version 2 without the optional fields.
+type RawStore = {
   brands: { id: string; name: string; sticker: string; folder: string }[];
   groups: { id: string; name: string; open: boolean; brands: string[] }[];
-  accounts: { id: string; brand: string; network: Network; handle: string; language: Account["language"]; times: Record<string, string> }[];
-  records: { share: string; status: "done" | "skipped"; at: string }[];
+  accounts: ({ id: string; brand: string; network: Network; handle: string; language: Account["language"]; times: Record<string, string> } & RawDetails)[];
+  records: { share: string; status: "done" | "skipped"; at: string; title?: string; planned?: string }[];
   sidebar: { collapsed: boolean; width: number; openBrands: string[] };
 };
+type RawDetails = { email?: string; twoStep?: TwoStep; recoveryEmail?: string; note?: string };
+
+// An absent field stays absent, so a store read back equals the one written.
+function detailsOf(d: AccountDetails): AccountDetails {
+  return {
+    ...(d.email === undefined ? {} : { email: d.email }),
+    ...(d.twoStep === undefined ? {} : { twoStep: d.twoStep }),
+    ...(d.recoveryEmail === undefined ? {} : { recoveryEmail: d.recoveryEmail }),
+    ...(d.note === undefined ? {} : { note: d.note }),
+  };
+}
+
+function parsePlanned(s: string): PlannedAt | null {
+  if (s.includes("T")) {
+    const at = parseLocal(s);
+    return at === null ? null : { kind: "at", at };
+  }
+  const date = parseDate(s);
+  return date === null ? null : { kind: "unscheduled", date };
+}
+
+const plannedText = (p: PlannedAt): string => (p.kind === "at" ? formatLocal(p.at) : p.date);
 
 const timesText = (t: Times): Record<string, string> =>
   Object.fromEntries(FORMATS.flatMap((p) => (t[p] === undefined ? [] : [[p, formatTime(t[p])]])));
@@ -179,8 +211,14 @@ export function serializeStore(s: StoreFile): string {
     version: s.version,
     brands: s.brands.map((b) => ({ id: b.id, name: b.name, sticker: b.sticker, folder: b.folder })),
     groups: s.groups.map((g) => ({ id: g.id, name: g.name, open: g.open, brands: g.brands })),
-    accounts: s.accounts.map((a) => ({ id: a.id, brand: a.brand, network: a.network, handle: a.handle, language: a.language, times: timesText(a.times) })),
-    records: s.records.map((r) => ({ share: r.share, status: r.status, at: formatLocal(r.at) })),
+    accounts: s.accounts.map((a) => ({ id: a.id, brand: a.brand, network: a.network, handle: a.handle, language: a.language, times: timesText(a.times), ...detailsOf(a) })),
+    records: s.records.map((r) => ({
+      share: r.share,
+      status: r.status,
+      at: formatLocal(r.at),
+      ...(r.title === undefined ? {} : { title: r.title }),
+      ...(r.planned === undefined ? {} : { planned: plannedText(r.planned) }),
+    })),
     settings: s.settings,
     sidebar: { collapsed: s.sidebar.collapsed, width: s.sidebar.width, openBrands: s.sidebar.openBrands },
   };

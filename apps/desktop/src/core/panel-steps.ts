@@ -1,4 +1,4 @@
-import type { Share, ShareBlocker, ShareRecord } from "./shares.ts";
+import { recordOf, type Share, type ShareBlocker, type ShareRecord } from "./shares.ts";
 import type { LocalMs } from "./time.ts";
 
 export type StepState = { readonly kind: "ready" } | { readonly kind: "blocked"; readonly reason: ShareBlocker } | { readonly kind: "done" };
@@ -35,5 +35,5 @@ export function markShare(s: Share, status: ShareRecord["status"], at: LocalMs):
   if (finished(s)) return { ok: false, why: "finished" };
   const blocker = firstBlocker(s);
   if (status === "done" && blocker) return { ok: false, why: blocker };
-  return { ok: true, record: { share: s.id, status, at } };
+  return { ok: true, record: recordOf(s, status, at) };
 }

@@ -1,5 +1,5 @@
 import type { Content, ContentFile } from "./manifest.ts";
-import { contentKeyOf, FORMATS, plannedDate, type BrandId, type ContentId, type ContentKey, type Share, type ShareRecord } from "./shares.ts";
+import { contentKeyOf, FORMATS, plannedDate, recordOf, type BrandId, type ContentId, type ContentKey, type Share, type ShareRecord } from "./shares.ts";
 import { at, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 
 const LAST_MINUTE = (24 * 60 - 1) as TimeOfDay;
@@ -85,4 +85,4 @@ export const contentRowOf = (view: ContentsView, key: ContentKey): ContentRow | 
   CONTENT_GROUPS.flatMap((g) => view.groups[g]).find((r) => r.key === key) ?? null;
 
 // «Kalan paylaşımları atla»: a skip record for each share still left.
-export const skipLeft = (row: ContentRow, when: LocalMs): ShareRecord[] => row.shares.filter((s) => !finished(s)).map((s) => ({ share: s.id, status: "skipped", at: when }));
+export const skipLeft = (row: ContentRow, when: LocalMs): ShareRecord[] => row.shares.filter((s) => !finished(s)).map((s) => recordOf(s, "skipped", when));
