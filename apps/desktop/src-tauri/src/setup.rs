@@ -16,7 +16,7 @@ const QUIT_SINCE: &str = "0.1.1";
 pub const PUBLISHER: &str = env!("POSTBELL_PUBLISHER");
 /// Identifier used before 0.1.2, kept only to migrate and remove its data.
 pub const LEGACY_IDENTIFIER: &str = "app.rae.postbell";
-const TEST_REG_PREFIX: &str = r"Software\Rae Software\Postbell setup test\";
+const TEST_REG_PREFIX: &str = r"Software\Postbell setup test\";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {

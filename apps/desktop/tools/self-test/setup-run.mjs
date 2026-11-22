@@ -1,6 +1,6 @@
 // Installs, updates and uninstalls the setup file under a test root, then checks disk and registry:
 //   node apps/desktop/tools/self-test/setup-run.mjs <evidence file> [--old <postbell.exe of 0.1.0>]
-// `--setup-root` keeps every path under the root and the registry under `Software\Rae Software\Postbell setup test\`.
+// `--setup-root` keeps every path under the root and the registry under `Software\Postbell setup test\`.
 // Clicks go through WebView2's debugging port, opened for these processes only by WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -87,7 +87,7 @@ const P = {
   legacyRoaming: join(ROOT, "Roaming", LEGACY_ID),
   legacyLocal: join(ROOT, "Local", LEGACY_ID),
 };
-const TEST_REG = "Software\\Rae Software\\Postbell setup test";
+const TEST_REG = "Software\\Postbell setup test";
 const UNINSTALL_KEY = `${TEST_REG}\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Postbell`;
 const NSIS_KEY = `${TEST_REG}\\Software\\Rae Software\\Postbell`;
 const notifKey = (id) => `${TEST_REG}\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\${id}`;
