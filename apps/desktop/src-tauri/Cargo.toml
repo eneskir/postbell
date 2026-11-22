@@ -21,6 +21,8 @@ tauri-plugin-single-instance = "2.5.5"
 keyring-core = "1.1.0"
 arboard = { version = "3.7.0", default-features = false }
 zeroize = "1.9.2"
+# Password backup: one passphrase-encrypted file in the age format (scrypt key, authenticated encryption).
+age = "0.12.1"
 
 # Same version Tauri already uses (Cargo.lock), so only API features are enabled.
 [target.'cfg(windows)'.dependencies]
