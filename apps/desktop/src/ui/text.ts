@@ -9,6 +9,7 @@ import type { StickerName } from "./assets.gen.ts";
 
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const DAYS = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+const SHORT_DAYS = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
 
 function dayAfter(day: LocalDate, today: LocalDate): string {
   const ms = Date.parse(`${day}T00:00:00Z`);
@@ -324,6 +325,38 @@ export const text = {
     goNext: (p: Platform) => `Sıradaki paylaşıma git: ${FORMATS[p]}`,
     skipLeft: "Kalan paylaşımları atla",
     skipLeftNote: "Geçmiş'ten geri alınır.",
+  },
+  calendar: {
+    summary: (total: number, finished: number) => `Bu hafta ${total} paylaşım, ${finished}'${possessive(finished)} tamam.`,
+    loading: "Takvim yükleniyor…",
+    range: (first: LocalDate, last: LocalDate) => {
+      const [a, b] = [new Date(`${first}T00:00:00Z`), new Date(`${last}T00:00:00Z`)];
+      const [ay, by] = [a.getUTCFullYear(), b.getUTCFullYear()];
+      const [am, bm] = [MONTHS[a.getUTCMonth()], MONTHS[b.getUTCMonth()]];
+      if (ay !== by) return `${a.getUTCDate()} ${am} ${ay}-${b.getUTCDate()} ${bm} ${by}`;
+      if (am !== bm) return `${a.getUTCDate()} ${am}-${b.getUTCDate()} ${bm} ${by}`;
+      return `${a.getUTCDate()}-${b.getUTCDate()} ${bm} ${by}`;
+    },
+    day: (date: LocalDate) => {
+      const d = new Date(`${date}T00:00:00Z`);
+      return `${SHORT_DAYS[d.getUTCDay()]} ${d.getUTCDate()}`;
+    },
+    today: "bugün",
+    previous: "Önceki hafta",
+    next: "Sonraki hafta",
+    thisWeek: "Bugün",
+    emptyTitle: "Bu hafta boş",
+    emptyBody: "Başka haftaya oklarla geç.",
+    noTime: "Saat yok",
+    status: { late: "gecikti", due: "saati geldi", done: "paylaşıldı", skipped: "atlandı" } satisfies Record<Exclude<Share["status"]["kind"], "upcoming">, string>,
+    shortFormats: {
+      x: "X",
+      "instagram-reels": "Reels",
+      "instagram-post": "Gönderi",
+      tiktok: "TikTok",
+      "youtube-shorts": "Shorts",
+      pinterest: "Pinterest",
+    } satisfies Record<Platform, string>,
   },
   home: {
     emptyTitle: "Bugün paylaşım yok",

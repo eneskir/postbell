@@ -15,14 +15,15 @@ export function Icon({ name }: { name: IconName }) {
 
 export type ButtonVariant = "primary" | "secondary" | "tertiary" | "ghost";
 
-type ButtonProps = { variant: ButtonVariant; disabled?: boolean; danger?: boolean; ref?: Ref<HTMLButtonElement>; children: ReactNode } & (
+// `label`: the accessible name when the visible content is only a sign («‹»).
+type ButtonProps = { variant: ButtonVariant; disabled?: boolean; danger?: boolean; label?: string; ref?: Ref<HTMLButtonElement>; children: ReactNode } & (
   | { submit: true; onClick?: never }
   | { submit?: false; onClick: () => void }
 );
 
-export function Button({ variant, onClick, submit = false, disabled = false, danger = false, ref, children }: ButtonProps) {
+export function Button({ variant, onClick, submit = false, disabled = false, danger = false, label, ref, children }: ButtonProps) {
   return (
-    <button ref={ref} type={submit ? "submit" : "button"} className={`button button-${variant}${danger ? " button-danger" : ""}`} onClick={onClick} disabled={disabled}>
+    <button ref={ref} type={submit ? "submit" : "button"} aria-label={label} className={`button button-${variant}${danger ? " button-danger" : ""}`} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );
