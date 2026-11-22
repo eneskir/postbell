@@ -6,6 +6,11 @@ use std::path::{Path, PathBuf};
 /// Bounded so that a whole drive picked by mistake stays cheap to scan.
 const FIND_DEPTH: usize = 3;
 const LIST_DEPTH: usize = 3;
+/// Far above any manifest the schema allows; a larger one is treated as unreadable.
+const MAX_MANIFEST: u64 = 1024 * 1024;
+/// Far above a real brand folder; more makes the folder an error instead of a long freeze.
+const MAX_PACKAGES: usize = 5_000;
+const MAX_FILES: usize = 10_000;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PackageDir {
@@ -84,7 +89,11 @@ fn find(root: &Path, dir: &Path, depth: usize, out: &mut Vec<PackageDir>) -> std
         let mut files = Vec::new();
         list(dir, dir, 0, &mut files)?;
         files.sort_by(|a: &PackageFile, b: &PackageFile| a.path.cmp(&b.path));
-        out.push(PackageDir { dir: rel(root, dir), manifest: fs::read_to_string(&manifest).ok(), files });
+        if out.len() >= MAX_PACKAGES {
+            return Err(std::io::Error::other(format!("more than {MAX_PACKAGES} packages")));
+        }
+        let small = fs::metadata(&manifest).is_ok_and(|m| m.len() <= MAX_MANIFEST);
+        out.push(PackageDir { dir: rel(root, dir), manifest: small.then(|| fs::read_to_string(&manifest).ok()).flatten(), files });
         return Ok(());
     }
     if depth >= FIND_DEPTH {
@@ -101,6 +110,9 @@ fn list(base: &Path, dir: &Path, depth: usize, out: &mut Vec<PackageFile>) -> st
         let e = e?;
         let t = e.file_type()?;
         if t.is_file() {
+            if out.len() >= MAX_FILES {
+                return Err(std::io::Error::other(format!("more than {MAX_FILES} files in a package")));
+            }
             out.push(PackageFile { path: rel(base, &e.path()), size: e.metadata()?.len() });
         } else if t.is_dir() && depth + 1 < LIST_DEPTH {
             list(base, &e.path(), depth + 1, out)?;
@@ -195,4 +207,23 @@ mod tests {
         r.set(vec![file.clone()]);
         assert_eq!(read(&r, &file).unwrap_err().code, "FOLDER_MISSING");
     }
+
+    #[test]
+    fn an_oversized_manifest_is_unreadable_and_too_many_files_is_an_error() {
+        let d = std::env::temp_dir().join(format!("postbell-caps-{}", std::process::id()));
+        let pkg = d.join("2026-11-12").join("package");
+        fs::create_dir_all(&pkg).unwrap();
+        fs::File::create(pkg.join("manifest.json")).unwrap().set_len(MAX_MANIFEST + 1).unwrap();
+        let mut r = Registry::default();
+        r.set(vec![d.display().to_string()]);
+        let got = read(&r, &d.display().to_string()).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].manifest, None);
+        for i in 0..MAX_FILES {
+            fs::File::create(pkg.join(format!("{i}.txt"))).unwrap();
+        }
+        assert_eq!(read(&r, &d.display().to_string()).unwrap_err().code, "FOLDER_READ");
+        fs::remove_dir_all(&d).unwrap();
+    }
 }
+

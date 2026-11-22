@@ -155,7 +155,11 @@ async fn file_restore(app: AppHandle, folder: String, path: String) -> Result<&'
         .map_err(|e| PortErr::new("DIALOG_FAILED", e))??;
     let Some(source) = picked else { return Ok("cancelled") };
     let Some(dest) = target()? else { return Ok("present") };
-    tauri::async_runtime::spawn_blocking(move || restore::copy_into(std::path::Path::new(&source), &dest))
+    let again = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let inside = |p: &std::path::Path| again.state::<Registry>().allow_list().is_ok_and(|r| r.contains(p));
+        restore::copy_into(std::path::Path::new(&source), &dest, &inside)
+    })
         .await
         .map_err(|e| PortErr::new("FILE_WRITE", e))??;
     Ok("copied")
@@ -342,6 +346,13 @@ fn open_main(app: &tauri::App, log: &log::Log) -> Result<(), Box<dyn std::error:
 }
 
 pub fn run() {
+    // `/DEPENDENTLOADFLAG` covers only the exe's static imports; this covers every later load in the process too.
+    #[cfg(windows)]
+    // SAFETY: a process-wide setting with no pointers, made before any other thread or window exists.
+    unsafe {
+        use windows::Win32::System::LibraryLoader::{SetDefaultDllDirectories, LOAD_LIBRARY_SEARCH_SYSTEM32};
+        let _ = SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32);
+    }
     let args: Vec<String> = std::env::args().collect();
     let options = match parse_args(&args) {
         Ok(v) => v,
