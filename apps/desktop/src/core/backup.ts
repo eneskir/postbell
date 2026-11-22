@@ -1,5 +1,6 @@
 import type { AccountId } from "./shares.ts";
-import type { StoreFile } from "./store.ts";
+import type { BackupPending, BackupState, StoreFile } from "./store.ts";
+import type { LocalMs } from "./time.ts";
 
 // Mirrors `src-tauri/src/backup.rs` `MIN_PASSPHRASE`; both count characters, not bytes.
 export const PASSPHRASE_MIN = 12;
@@ -28,3 +29,13 @@ export function parseRestored(raw: unknown): Restored | null {
   const { changed, added, skipped } = (raw ?? {}) as Record<string, unknown>;
   return count(changed) && count(added) && count(skipped) ? { changed, added, skipped } : null;
 }
+
+// A change to the vault since the last backup shows the reminder again, even after «Sonra»; a new account outranks a
+// changed password, since its whole entry is missing from the backup.
+export const withVaultChange = (b: BackupState, kind: BackupPending): BackupState => ({
+  ...(b.last === undefined ? {} : { last: b.last }),
+  pending: b.pending === "new-account" ? "new-account" : kind,
+});
+export const withBackupSaved = (at: LocalMs): BackupState => ({ last: at });
+export const withReminderLater = (b: BackupState): BackupState => (b.pending ? { ...b, later: true } : b);
+export const reminderOf = (b: BackupState): BackupPending | null => (b.pending && !b.later ? b.pending : null);

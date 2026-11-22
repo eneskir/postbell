@@ -139,7 +139,7 @@ pub fn restore(vault: &Vault, file: &[u8], passphrase: &Secret, present: &[Strin
 /// The file name the save dialog offers; `today` is `YYYY-MM-DD` or the name has no date.
 pub fn file_name(today: &str) -> String {
     let dated = today.len() == 10 && today.bytes().enumerate().all(|(i, c)| if i == 4 || i == 7 { c == b'-' } else { c.is_ascii_digit() });
-    if dated { format!("Postbell yedeği {today}.age") } else { "Postbell yedeği.age".to_string() }
+    if dated { format!("postbell-kasa-{today}.age") } else { "postbell-kasa.age".to_string() }
 }
 
 /// Writes next to the target first and renames, so a failed save never leaves half a backup under its name.
@@ -263,9 +263,9 @@ mod tests {
 
     #[test]
     fn the_file_name_takes_only_a_date() {
-        assert_eq!(file_name("2026-11-22"), "Postbell yedeği 2026-11-22.age");
-        assert_eq!(file_name("../x/2026"), "Postbell yedeği.age");
-        assert_eq!(file_name("2026-11-2a"), "Postbell yedeği.age");
+        assert_eq!(file_name("2026-11-22"), "postbell-kasa-2026-11-22.age");
+        assert_eq!(file_name("../x/2026"), "postbell-kasa.age");
+        assert_eq!(file_name("2026-11-2a"), "postbell-kasa.age");
     }
 
     #[test]

@@ -284,14 +284,18 @@ async fn vault_backup(app: AppHandle, accounts: Vec<backup::BackupAccount>, pass
     logged(&log, done).map(Some)
 }
 
-/// Asks for a backup file and keeps its path; returns only the file name, or `None` if cancelled.
+/// Asks for a backup file and keeps its path; returns the path for display, or `None` if cancelled.
 #[tauri::command]
 async fn backup_pick(app: AppHandle) -> Result<Option<String>, PortErr> {
     let owner = dialog_owner(&app)?;
     let picked = tauri::async_runtime::spawn_blocking(move || dialog::open_file(owner, "age")).await.map_err(|e| PortErr::new("DIALOG_FAILED", e))??;
     let path = picked.map(PathBuf::from);
-    let name = path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned());
-    *app.state::<BackupPick>().0.lock().unwrap_or_else(|e| e.into_inner()) = path;
+    // Shown in the dialog only; the shell reads the file from the path it keeps, never from one the UI sends.
+    let name = path.as_ref().map(|p| p.display().to_string());
+    // A cancelled second pick keeps the file the dialog still shows.
+    if path.is_some() {
+        *app.state::<BackupPick>().0.lock().unwrap_or_else(|e| e.into_inner()) = path;
+    }
     Ok(name)
 }
 

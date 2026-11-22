@@ -68,7 +68,7 @@ export interface Port extends ReadyPort {
   readonly backup: {
     // Asks where to save under a dated name, then writes the entries of `accounts`; null when the dialog is cancelled.
     save(accounts: readonly BackupAccount[], passphrase: string, today: LocalDate): Promise<PortResult<BackupSaved | null>>;
-    // Asks for a backup file and keeps it in the shell; the file name, or null when cancelled.
+    // Asks for a backup file and keeps it in the shell; its path to show, or null when cancelled. Restore reads the kept one.
     pick(): Promise<PortResult<string | null>>;
     // Writes the picked file's entries for `accounts` only, and nothing unless the whole file opens with the passphrase.
     restore(passphrase: string, accounts: readonly AccountId[]): Promise<PortResult<Restored>>;

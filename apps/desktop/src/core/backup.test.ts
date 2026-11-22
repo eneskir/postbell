@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { backupAccountsOf, parseBackupSaved, parseRestored, passphraseLongEnough } from "./backup.ts";
+import { backupAccountsOf, parseBackupSaved, parseRestored, passphraseLongEnough, reminderOf, withBackupSaved, withReminderLater, withVaultChange } from "./backup.ts";
 import type { AccountId, BrandId } from "./shares.ts";
 import { emptyStore, type StoreFile } from "./store.ts";
+import type { LocalMs } from "./time.ts";
 
 test("the passphrase minimum counts characters like the shell, not UTF-16 units", () => {
   assert.equal(passphraseLongEnough("on-bir-harf"), false);
@@ -34,4 +35,19 @@ test("shell answers of the wrong shape are refused", () => {
   assert.deepEqual(parseRestored({ changed: 1, added: 2, skipped: 0 }), { changed: 1, added: 2, skipped: 0 });
   assert.equal(parseRestored({ changed: 1, added: 2 }), null);
   assert.equal(parseRestored({ changed: 1.5, added: 0, skipped: 0 }), null);
+});
+
+test("the reminder: a change shows it, «Sonra» hides it until the next change, a backup clears it", () => {
+  const at = 1_795_000_000_000 as LocalMs;
+  assert.equal(reminderOf({}), null);
+  const changed = withVaultChange({ last: at }, "changed-password");
+  assert.deepEqual(changed, { last: at, pending: "changed-password" });
+  assert.equal(reminderOf(changed), "changed-password");
+  const later = withReminderLater(changed);
+  assert.equal(reminderOf(later), null);
+  assert.equal(reminderOf(withVaultChange(later, "changed-password")), "changed-password");
+  assert.equal(reminderOf(withVaultChange(later, "new-account")), "new-account");
+  assert.equal(withVaultChange(withVaultChange({}, "new-account"), "changed-password").pending, "new-account");
+  assert.deepEqual(withBackupSaved(at), { last: at });
+  assert.deepEqual(withReminderLater({ last: at }), { last: at });
 });
