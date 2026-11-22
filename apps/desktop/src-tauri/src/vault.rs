@@ -49,13 +49,13 @@ impl<'de> Deserialize<'de> for Secret {
     }
 }
 
-/// The one secret blob stored per account.
+/// The one secret blob stored per account; the backup file holds the same fields.
 #[derive(Default, Serialize, Deserialize)]
-struct VaultEntry {
+pub(crate) struct VaultEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    password: Option<Secret>,
+    pub(crate) password: Option<Secret>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    codes: Vec<Secret>,
+    pub(crate) codes: Vec<Secret>,
 }
 
 impl VaultEntry {
@@ -99,6 +99,9 @@ pub struct Vault {
     service: String,
     /// The Windows store keeps entries on this computer only (`Local`), never in a roaming profile.
     modifiers: HashMap<&'static str, &'static str>,
+    /// An account whose entry fails as if the store refused it (tests of the backup's undo).
+    #[cfg(test)]
+    broken: std::sync::Mutex<Option<String>>,
 }
 
 impl Vault {
@@ -108,18 +111,33 @@ impl Vault {
         let store = windows_native_keyring_store::Store::new().map(|s| s as Arc<CredentialStore>).map_err(|e| port_err(e).detail);
         #[cfg(not(windows))]
         let store = Err("no credential store on this system".to_string());
-        Vault { store, service: service.to_string(), modifiers: HashMap::from([("persistence", "Local")]) }
+        Vault {
+            store,
+            service: service.to_string(),
+            modifiers: HashMap::from([("persistence", "Local")]),
+            #[cfg(test)]
+            broken: Default::default(),
+        }
     }
 
     #[cfg(test)]
-    fn mock() -> Self {
+    pub(crate) fn mock() -> Self {
         let store: Arc<CredentialStore> = keyring_core::mock::Store::new().unwrap();
-        Vault { store: Ok(store), service: "Postbell test".into(), modifiers: HashMap::new() }
+        Vault { store: Ok(store), service: "Postbell test".into(), modifiers: HashMap::new(), broken: Default::default() }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn fail_on(&self, account: &str) {
+        *self.broken.lock().unwrap() = Some(account.to_string());
     }
 
     fn entry(&self, account: &str) -> Result<Entry, PortErr> {
         if !valid_account(account) {
             return Err(PortErr::new("VAULT_UNAVAILABLE", "invalid account id"));
+        }
+        #[cfg(test)]
+        if self.broken.lock().unwrap().as_deref() == Some(account) {
+            return Err(PortErr::new("VAULT_UNAVAILABLE", "refused for the test"));
         }
         let store = self.store.as_ref().map_err(|e| PortErr::new("VAULT_UNAVAILABLE", e))?;
         Entry::new_in_store_with_modifiers(store, &self.service, account, &self.modifiers).map_err(port_err)
@@ -175,6 +193,16 @@ impl Vault {
             return Err(PortErr::new("VAULT_TOO_LARGE", format!("entry is {} bytes, over {MAX_BYTES}", blob.len())));
         }
         entry.set_secret(&blob).map_err(port_err)
+    }
+
+    /// The whole entry, for the backup.
+    pub(crate) fn get(&self, account: &str) -> Result<Option<VaultEntry>, PortErr> {
+        self.read(&self.entry(account)?)
+    }
+
+    /// Makes the entry exactly `v`; an empty one deletes it.
+    pub(crate) fn put(&self, account: &str, v: VaultEntry) -> Result<(), PortErr> {
+        self.write(account, v.password, Some(v.codes), true)
     }
 
     pub fn password(&self, account: &str) -> Result<Secret, PortErr> {

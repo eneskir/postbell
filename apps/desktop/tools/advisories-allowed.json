@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "id": "RUSTSEC-2026-0374",
+    "package": "basic-toml",
+    "reason": "Unmaintained, no vulnerability. Only age's translation macros (i18n-embed-fl, i18n-embed-impl) use it, at build time, to read age's own i18n.toml; nothing of ours or a user's is parsed with it."
+  },
+  {
+    "id": "RUSTSEC-2026-0387",
+    "package": "crypto-bigint",
+    "reason": "Timing leaks on secret integers. In age 0.12.1 only the P-256 tag recipients (src/native/tag.rs, tagpq) reach it through p256 and hpke; the password backup uses only the passphrase (scrypt) recipient, so no secret goes through crypto-bigint. The fix is in 0.7.6, which elliptic-curve 0.13 cannot take."
+  }
+]

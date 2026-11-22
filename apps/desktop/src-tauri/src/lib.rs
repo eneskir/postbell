@@ -1,4 +1,5 @@
 mod alarms;
+mod backup;
 mod dialog;
 mod log;
 mod media;
@@ -249,6 +250,62 @@ fn vault_delete(account: String, vault: State<vault::Vault>, log: State<Arc<log:
     logged(&log, vault.delete(&account))
 }
 
+/// The backup file picked for a restore; the UI never hands the shell a path to read.
+#[derive(Default)]
+struct BackupPick(Mutex<Option<PathBuf>>);
+
+#[derive(Serialize)]
+struct BackupSaved {
+    count: usize,
+    created: i64,
+}
+
+/// Asks where to save, then writes the passphrase-encrypted backup of `accounts`; `None` if the dialog was cancelled.
+#[tauri::command]
+async fn vault_backup(app: AppHandle, accounts: Vec<backup::BackupAccount>, passphrase: vault::Secret, today: String) -> Result<Option<BackupSaved>, PortErr> {
+    let log = app.state::<Arc<log::Log>>().inner().clone();
+    logged(&log, backup::check_passphrase(&passphrase))?;
+    let owner = dialog_owner(&app)?;
+    let name = backup::file_name(&today);
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog::save_file(owner, &name)).await.map_err(|e| PortErr::new("DIALOG_FAILED", e))??;
+    let Some(path) = picked else { return Ok(None) };
+    let created = log::now_ms();
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        let (bytes, count) = backup::seal(&app.state::<vault::Vault>(), &accounts, &passphrase, created, None)?;
+        backup::save(std::path::Path::new(&path), &bytes)?;
+        Ok(BackupSaved { count, created })
+    })
+    .await
+    .map_err(|e| PortErr::new("BACKUP_FAILED", e))?;
+    logged(&log, done).map(Some)
+}
+
+/// Asks for a backup file and keeps its path; returns only the file name, or `None` if cancelled.
+#[tauri::command]
+async fn backup_pick(app: AppHandle) -> Result<Option<String>, PortErr> {
+    let owner = dialog_owner(&app)?;
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog::open_file(owner, "age")).await.map_err(|e| PortErr::new("DIALOG_FAILED", e))??;
+    let path = picked.map(PathBuf::from);
+    let name = path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned());
+    *app.state::<BackupPick>().0.lock().unwrap_or_else(|e| e.into_inner()) = path;
+    Ok(name)
+}
+
+/// Restores the picked backup into the vault for the accounts here; nothing is written unless the whole file opens.
+#[tauri::command]
+async fn vault_restore(app: AppHandle, passphrase: vault::Secret, accounts: Vec<String>) -> Result<backup::Restored, PortErr> {
+    let log = app.state::<Arc<log::Log>>().inner().clone();
+    let path = app.state::<BackupPick>().0.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let Some(path) = path else { return Err(PortErr::new("BACKUP_NOT_PICKED", "no backup file picked")) };
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        let bytes = backup::load(&path)?;
+        backup::restore(&app.state::<vault::Vault>(), &bytes, &passphrase, &accounts)
+    })
+    .await
+    .map_err(|e| PortErr::new("BACKUP_FAILED", e))?;
+    logged(&log, done)
+}
+
 #[tauri::command]
 async fn dialog_pick_folder(app: AppHandle) -> Result<Option<String>, PortErr> {
     let owner = dialog_owner(&app)?;
@@ -453,6 +510,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
             let options = app.state::<Options>();
             let test = options.data_dir.is_some() || options.self_test.is_some();
             app.manage(vault::Vault::open(if test { vault::TEST_SERVICE } else { vault::SERVICE }));
+            app.manage(BackupPick::default());
             app.manage(DataDir(dir));
             open_main(app, &log)
         })
@@ -479,7 +537,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
                 responder.respond(media::respond(path, request.method(), range, &app.state::<Arc<log::Log>>()));
             });
         })
-        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, vault_status, vault_write, vault_password, vault_copy, vault_delete])
+        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, vault_status, vault_write, vault_password, vault_copy, vault_delete, vault_backup, backup_pick, vault_restore])
         .build(context)
         .expect("failed to start Postbell")
         // A password copied less than 30 seconds ago leaves with the app.
