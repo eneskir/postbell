@@ -1,5 +1,5 @@
 import type { AccountDraft } from "../core/accounts.ts";
-import type { AccountId, BrandId, ShareId } from "../core/shares.ts";
+import type { AccountId, BrandId, ContentKey, ShareId } from "../core/shares.ts";
 import type { IconName, StickerName } from "./assets.gen.ts";
 import { text } from "./text.ts";
 
@@ -19,12 +19,14 @@ export const HOME: Route = { kind: "home" };
 export type PanelState =
   | { readonly kind: "closed" }
   | { readonly kind: "share"; readonly share: ShareId }
+  | { readonly kind: "content"; readonly content: ContentKey }
   | { readonly kind: "account"; readonly account: AccountId }
   | { readonly kind: "account-new"; readonly draft: AccountDraft; readonly row: { readonly languageShown: boolean } | null };
 
 export function rowPick(current: PanelState, next: PanelState): PanelState {
   const same =
     (current.kind === "share" && next.kind === "share" && current.share === next.share) ||
+    (current.kind === "content" && next.kind === "content" && current.content === next.content) ||
     (current.kind === "account" && next.kind === "account" && current.account === next.account) ||
     (current.kind === "account-new" &&
       next.kind === "account-new" &&

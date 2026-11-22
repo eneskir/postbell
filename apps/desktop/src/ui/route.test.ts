@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { AccountId, BrandId, ShareId } from "../core/shares.ts";
+import type { AccountId, BrandId, ContentKey, ShareId } from "../core/shares.ts";
 import { BRAND_PAGES, HOME, rowPick, sameRoute, viewOf, type PanelState, type Route } from "./route.ts";
 
 const initech = "initech" as BrandId;
@@ -69,6 +69,9 @@ test("pressing the open row again closes the panel, another row opens; the gener
   assert.deepEqual(rowPick(closed, share("a")), share("a"));
   assert.deepEqual(rowPick(account("a"), account("a")), closed);
   assert.deepEqual(rowPick(account("a"), share("a")), share("a"));
+  const content = (id: string): PanelState => ({ kind: "content", content: id as ContentKey });
+  assert.deepEqual(rowPick(content("a"), content("a")), closed);
+  assert.deepEqual(rowPick(content("a"), content("b")), content("b"));
   assert.deepEqual(rowPick(missing("x", "en", true), missing("x", "en", true)), closed);
   assert.deepEqual(rowPick(missing("x", "en", true), missing("x", "tr", true)), missing("x", "tr", true));
   assert.deepEqual(rowPick(missing("x", "en", false), missing("x", "en", true)), missing("x", "en", true));

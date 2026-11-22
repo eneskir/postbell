@@ -4,12 +4,15 @@ import { alarmsOf, DEFAULT_NOTIFY } from "../core/alarms.ts";
 import type { AppInfo, ParseResult } from "../core/app-info.ts";
 import { addBrand, removeBrand, type BrandDraft } from "../core/brands.ts";
 import type { Port, PortErrorCode } from "../core/port.ts";
+import { dateOf } from "../core/time.ts";
 import { loadStore, storeScreenOf, type Screen, type StoreScreenError } from "../core/screen.ts";
 import { markShare } from "../core/panel-steps.ts";
+import { contentRowOf, contentsView, skipLeft, type ContentRow } from "../core/contents.ts";
 import { contentKeyOf, fileKeyOf, lateCount, networkOf, type AccountId, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "../core/shares.ts";
 import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
 import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
 import { AccountForm, AccountsPage, type AccountSelection } from "./accounts-page.tsx";
+import { ContentPanel, ContentsPage, type ContentActions } from "./contents-page.tsx";
 import { brandStatesOf, loadBrandPackages, readingOf, sharesOf, type BrandPackages } from "./brand-data.ts";
 import { BrandNewPage } from "./brand-new.tsx";
 import { BrandSettingsPage } from "./brand-settings.tsx";
@@ -170,6 +173,7 @@ export function App({ port }: { port: Port }) {
 
   const shares = useMemo(() => (store && packages ? sharesOf(store, packages.packages, now) : []), [store, packages, now]);
   const late = useCallback((b: BrandId) => lateCount(shares, b), [shares]);
+  const contents = useMemo(() => (route.kind === "brand" && route.page === "contents" ? contentsView(shares, route.brand, dateOf(now)) : null), [route, shares, now]);
 
   const showPanel = useCallback((next: PanelState) => {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -196,7 +200,8 @@ export function App({ port }: { port: Port }) {
   useEffect(() => {
     if (panel.kind === "share" && store && packages && !shares.some((s) => s.id === panel.share)) closePanel();
     if (panel.kind === "account" && store && !store.accounts.some((a) => a.id === panel.account)) closePanel();
-  }, [panel, store, packages, shares, closePanel]);
+    if (panel.kind === "content" && packages && !(contents && contentRowOf(contents, panel.content))) closePanel();
+  }, [panel, store, packages, shares, contents, closePanel]);
 
   // Not sent before packages load: an empty list moves the shell's last-check time and an alarm due meanwhile is lost.
   const sentPlan = useRef("");
@@ -343,6 +348,18 @@ export function App({ port }: { port: Port }) {
           addAny={() => openAccountNew(draftFor(store.accounts, route.brand, shares), null)}
         />
       )
+    ) : route.kind === "brand" && route.page === "contents" && store ? (
+      <ContentsPage
+        brand={route.brand}
+        reading={brandReading(route.brand)}
+        view={contents ?? contentsView(shares, route.brand, dateOf(now))}
+        today={dateOf(now)}
+        selected={panel.kind === "content" ? panel.content : null}
+        thumbUrl={(r) => urlOf(placeOfFile(r.brand, r.content.id as ContentId, r.file.path))}
+        openPanel={(content) => pickRow({ kind: "content", content })}
+        go={go}
+        reread={() => void reloadPackages()}
+      />
     ) : route.kind === "brand" && route.page === "today" ? (
       <TodayPage
         brand={route.brand}
@@ -368,12 +385,14 @@ export function App({ port }: { port: Port }) {
     update((st) => withRecord(st, r.record));
     say(status === "done" ? text.toast.done : text.toast.skipped, { label: text.toast.undo, onClick: () => unrecord(s.id) });
   };
-  const placeOf = (s: Share) => {
-    const folder = store?.brands.find((b) => b.id === s.brand)?.folder;
-    const dir = packages?.packages.dirs.get(contentKeyOf(s.brand, s.content.id as ContentId));
+  const placeOfFile = (brand: BrandId, content: ContentId, path: string) => {
+    const folder = store?.brands.find((b) => b.id === brand)?.folder;
+    const dir = packages?.packages.dirs.get(contentKeyOf(brand, content));
     if (folder === undefined || dir === undefined) return null;
-    return { folder, path: `${dir}/${s.file.path}`, size: packages?.packages.sizes.get(fileKeyOf(s.brand, s.content.id as ContentId, s.file.path)) ?? null };
+    return { folder, path: `${dir}/${path}`, size: packages?.packages.sizes.get(fileKeyOf(brand, content, path)) ?? null };
   };
+  const placeOf = (s: Share) => placeOfFile(s.brand, s.content.id as ContentId, s.file.path);
+  const urlOf = (place: ReturnType<typeof placeOfFile>) => (place && place.size !== null ? port.files.url(place.folder, place.path) : null);
   const actionsOf = (s: Share, place: ReturnType<typeof placeOf>): ShareActions => ({
     copy: () =>
       navigator.clipboard.writeText(s.text).then(
@@ -413,6 +432,33 @@ export function App({ port }: { port: Port }) {
   const editing = panel.kind === "account" ? store?.accounts.find((a) => a.id === panel.account) : undefined;
   const selectedShare = panel.kind === "share" ? shares.find((s) => s.id === panel.share) : undefined;
   const place = selectedShare ? placeOf(selectedShare) : null;
+  const selectedContent = panel.kind === "content" && contents ? contentRowOf(contents, panel.content) : null;
+  const contentPlace = selectedContent ? placeOfFile(selectedContent.brand, selectedContent.content.id as ContentId, selectedContent.file.path) : null;
+  const contentActionsOf = (r: ContentRow): ContentActions => ({
+    reveal: () => {
+      if (!contentPlace) return say(text.toast.fileMissing);
+      void port.files.reveal(contentPlace.folder, contentPlace.path).then((x) => {
+        if (!x.ok) say(x.error.code === "file-missing" ? text.toast.fileMissing : text.toast.revealFailed);
+      });
+    },
+    goTo: (s) => {
+      go({ kind: "brand", brand: s.brand, page: "today" });
+      openPanel(s.id);
+    },
+    skipLeft: () => {
+      // Same mark time as a single skip: the current whole minute.
+      const skips = skipLeft(r, localNow());
+      if (skips.length === 0) return;
+      update((st) => skips.reduce(withRecord, st));
+      // The skip button goes away with the shares left; focus moves to the content's row.
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-content="${CSS.escape(r.key)}"]`)?.focus());
+      say(text.toast.skippedMany(skips.length), { label: text.toast.undo, onClick: () => {
+          update((st) => skips.reduce((acc, x) => withoutRecord(acc, x.share), st));
+          setToast(null);
+        },
+      });
+    },
+  });
   const panelView: PanelView | null = selectedShare
     ? {
         eyebrow: text.share.eyebrow(selectedShare),
@@ -421,13 +467,19 @@ export function App({ port }: { port: Port }) {
             key={selectedShare.id}
             share={selectedShare}
             size={place?.size ?? null}
-            url={place && place.size !== null ? port.files.url(place.folder, place.path) : null}
+            url={urlOf(place)}
             go={go}
             actions={actionsOf(selectedShare, place)}
           />
         ),
         onClose: closePanel,
       }
+    : selectedContent
+      ? {
+          eyebrow: text.contents.eyebrow(selectedContent.file),
+          content: <ContentPanel key={selectedContent.key} row={selectedContent} size={contentPlace?.size ?? null} url={urlOf(contentPlace)} actions={contentActionsOf(selectedContent)} />,
+          onClose: closePanel,
+        }
     : editing && store
       ? {
           eyebrow: text.accounts.eyebrowEdit,

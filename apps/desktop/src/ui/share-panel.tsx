@@ -172,7 +172,7 @@ function headTag(s: Share): ReactNode {
   }
 }
 
-function Preview({ file, url }: { file: ContentFile; url: string | null }) {
+export function Preview({ file, url }: { file: ContentFile; url: string | null }) {
   const [failed, setFailed] = useState<string | null>(null);
   const style = { "--preview-ratio": file.width / file.height } as CSSProperties;
   const media =

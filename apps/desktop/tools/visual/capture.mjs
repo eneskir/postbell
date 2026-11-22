@@ -185,6 +185,23 @@ const scenes = [
   ["contents_v1--error", "?packages=missing", async () => { await open("Initech", "İçerikler"); await away(); }],
   ["app--contents-unreadable", "?packages=unreadable", async () => { await open("Initech", "İçerikler"); await away(); }],
   ["app--contents-rejected", "", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["contents_v1--default", "", async () => { await ungroup(); await open("Initech", "İçerikler"); await tap(".share-row-main", "The dog hiding in the corner"); await away(); }],
+  ["contents_v1--no-selection", "", async () => { await ungroup(); await open("Initech", "İçerikler"); await away(); }],
+  ["contents_v1--loading", "?packages=wait", async () => { await ungroup(); await open("Initech", "İçerikler"); await away(); }],
+  ["app--contents-go-late", "", async () => {
+    await ungroup();
+    await open("Initech", "İçerikler");
+    await tap(".share-row-main", "The dog hiding in the corner");
+    await tap("aside.panel button", "Geciken paylaşıma git");
+    await away();
+  }],
+  ["app--contents-skip-left", "", async () => {
+    await ungroup();
+    await open("Initech", "İçerikler");
+    await tap(".share-row-main", "The dog hiding in the corner");
+    await tap("aside.panel button", "Kalan paylaşımları atla");
+    await away();
+  }],
   ["brand-new_v1--default", "", async () => { await tap(".nav-row", "Marka ekle"); await away(); }],
   ["brand-settings_v1--default", "", async () => { await settings(); await away(); }],
   ["brand-settings_v1--remove-confirm", "", async () => { await settings(); await tap("button", "Kaldır…"); await away(); }],

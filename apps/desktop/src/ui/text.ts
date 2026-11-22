@@ -1,6 +1,7 @@
 import type { ContentFile, Language, Platform } from "../core/manifest.ts";
 import type { SetupStep } from "../core/accounts.ts";
-import { networkOf, type Network, type Share, type TodayGroups } from "../core/shares.ts";
+import type { ContentGroup, ContentTag } from "../core/contents.ts";
+import { networkOf, plannedDate, type Network, type Share, type TodayGroups } from "../core/shares.ts";
 import { DAY, dateOf, formatTime, timeOf, type LocalDate, type LocalMs, type TimeOfDay } from "../core/time.ts";
 import type { PackageRejection } from "../core/packages.ts";
 import type { BrandProblem } from "../core/today.ts";
@@ -13,6 +14,17 @@ function dayAfter(day: LocalDate, today: LocalDate): string {
   const ms = Date.parse(`${day}T00:00:00Z`);
   const d = new Date(ms);
   return Math.round((ms - Date.parse(`${today}T00:00:00Z`)) / DAY) === 1 ? "yarın" : `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${DAYS[d.getUTCDay()]}`;
+}
+
+// The day of a content's next share: «Sıradaki» for today, «Dün», «Yarın», the weekday within the next week, else «24 Kasım».
+function dayWord(day: LocalDate, today: LocalDate): string {
+  const ms = Date.parse(`${day}T00:00:00Z`);
+  const diff = Math.round((ms - Date.parse(`${today}T00:00:00Z`)) / DAY);
+  const d = new Date(ms);
+  if (diff === 0) return "Sıradaki";
+  if (diff === -1) return "Dün";
+  if (diff === 1) return "Yarın";
+  return diff > 1 && diff < 7 ? (DAYS[d.getUTCDay()] ?? "") : `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
 // Possessive suffix after a number, by how its last word is read: «1'i», «2'si», «6'sı», «10'u», «100'ü».
@@ -291,6 +303,28 @@ export const text = {
     setupNotice: "Bildirim için hesap ve paylaşım saati gerekiyor.",
     setupAction: { "add-account": "Hesap ekle", "enter-times": "Saatleri gir" } satisfies Record<SetupStep, string>,
   },
+  contents: {
+    summary: (total: number, today: number) => (today ? `${total} içerik, ${today}'${possessive(today)} bugün.` : `${total} içerik.`),
+    loading: "İçerikler yükleniyor…",
+    groups: { today: "Bugün", planned: "Planlı", done: "Bitenler" } satisfies Record<ContentGroup, string>,
+    shared: (done: number, total: number) => `${done} / ${total} paylaşıldı`,
+    next: (s: Share, today: LocalDate) => {
+      const time = s.plannedAt.kind === "at" ? formatTime(timeOf(s.plannedAt.at)) : NO_TIME;
+      return `${dayWord(plannedDate(s), today)} ${time}`;
+    },
+    none: "–",
+    tag: (t: ContentTag) => (t.kind === "late" ? `${t.count} gecikti` : t.kind === "file-missing" ? text.today.fileMissing : t.kind === "due" ? text.today.due : text.today.skipped),
+    eyebrow: (file: ContentFile) =>
+      file.kind === "video" ? ["İçerik", "Video", ...(file.durationSec === undefined ? [] : [duration(file.durationSec)])].join(" · ") : "İçerik · Görsel",
+    sharesTitle: (done: number, total: number) => `Paylaşımlar · ${done} / ${total}`,
+    shareLine: (s: Share) => (s.account ? `${s.account.handle} · ${FORMATS[s.platform]}` : `${FORMATS[s.platform]} · hesap eklenmedi`),
+    late: "Gecikti",
+    done: "Paylaşıldı",
+    goLate: (p: Platform) => `Geciken paylaşıma git: ${FORMATS[p]}`,
+    goNext: (p: Platform) => `Sıradaki paylaşıma git: ${FORMATS[p]}`,
+    skipLeft: "Kalan paylaşımları atla",
+    skipLeftNote: "Geçmiş'ten geri alınır.",
+  },
   home: {
     emptyTitle: "Bugün paylaşım yok",
     emptyBody: "Haftaya bakmak için markanın takvimini aç.",
@@ -355,6 +389,7 @@ export const text = {
     copyFailed: "Metin kopyalanamadı.",
     done: "Paylaşıldı olarak işaretlendi.",
     skipped: "Paylaşım atlandı.",
+    skippedMany: (n: number) => `${n} paylaşım atlandı.`,
     fileMissing: "Dosya bulunamadı.",
     revealFailed: "Gezgin açılamadı.",
     openFailed: "Tarayıcı açılamadı.",
