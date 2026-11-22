@@ -452,7 +452,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
             // A test copy (`--data-dir`, `--self-test`) keeps its entries apart from the real ones.
             let options = app.state::<Options>();
             let test = options.data_dir.is_some() || options.self_test.is_some();
-            app.manage(vault::Vault::open(if test { "Postbell test" } else { "Postbell" }));
+            app.manage(vault::Vault::open(if test { vault::TEST_SERVICE } else { vault::SERVICE }));
             app.manage(DataDir(dir));
             open_main(app, &log)
         })
@@ -480,8 +480,14 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
             });
         })
         .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, vault_status, vault_write, vault_password, vault_copy, vault_delete])
-        .run(context)
-        .expect("failed to start Postbell");
+        .build(context)
+        .expect("failed to start Postbell")
+        // A password copied less than 30 seconds ago leaves with the app.
+        .run(|_, event| {
+            if let tauri::RunEvent::Exit = event {
+                vault::clear_copy(None);
+            }
+        });
 }
 
 #[cfg(test)]

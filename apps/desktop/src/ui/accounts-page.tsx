@@ -182,7 +182,7 @@ export function AccountDetail({ account: a, vault, onEdit, reveal, copy, openNet
   const passwordStep = hasPassword || (error && !signsInWithInstagram(a.network, undefined));
   const toggle = () => {
     if (shown !== null) setShown(null);
-    else void reveal().then(setShown);
+    else void reveal().then((p) => setShown(document.hidden ? null : p));
   };
   return (
     <>

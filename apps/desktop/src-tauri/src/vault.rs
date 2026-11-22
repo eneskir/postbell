@@ -6,13 +6,15 @@ use crate::store::PortErr;
 use keyring_core::{CredentialStore, Entry, Error};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use zeroize::Zeroizing;
 
 /// Windows' limit for one credential's secret (`CRED_MAX_CREDENTIAL_BLOB_SIZE`).
 pub const MAX_BYTES: usize = 2560;
+/// The service of the real entries; a test copy uses `TEST_SERVICE`.
+pub const SERVICE: &str = "Postbell";
+pub const TEST_SERVICE: &str = "Postbell test";
 /// How long a copied password stays on the clipboard.
 pub const CLEAR_AFTER: Duration = Duration::from_secs(30);
 
@@ -180,6 +182,23 @@ impl Vault {
         v.and_then(|mut v| v.password.take()).ok_or_else(|| PortErr::new("VAULT_NOT_FOUND", "no password"))
     }
 
+    /// Deletes every entry of this service, also ones no account names any more; returns how many.
+    pub fn delete_all(&self) -> Result<usize, PortErr> {
+        let store = self.store.as_ref().map_err(|e| PortErr::new("VAULT_UNAVAILABLE", e))?;
+        // Targets are `<account>.<service>`; the service is a fixed name of letters and spaces, so it needs no escaping.
+        debug_assert!(self.service.chars().all(|c| c.is_ascii_alphabetic() || c == ' '));
+        let pattern = format!("^[a-z0-9-]{{1,80}}\\.{}$", self.service);
+        let found = Entry::search_in_store(store, &HashMap::from([("pattern", pattern.as_str())])).map_err(port_err)?;
+        let n = found.len();
+        for e in found {
+            match e.delete_credential() {
+                Ok(()) | Err(Error::NoEntry) => {}
+                Err(e) => return Err(port_err(e)),
+            }
+        }
+        Ok(n)
+    }
+
     /// Deleting an account that has no entry is not an error.
     pub fn delete(&self, account: &str) -> Result<(), PortErr> {
         match self.entry(account)?.delete_credential() {
@@ -189,15 +208,15 @@ impl Vault {
     }
 }
 
-/// Counts copies, so only the latest copy's timer clears the clipboard.
-static COPIES: AtomicU64 = AtomicU64::new(0);
+/// The latest copy and its number, so only its timer, or the app's exit, clears the clipboard.
+static LAST_COPY: Mutex<Option<(u64, Secret)>> = Mutex::new(None);
 
 fn clipboard_err(e: arboard::Error) -> PortErr {
     PortErr::new("CLIPBOARD_FAILED", e)
 }
 
 /// Puts the password on the clipboard, kept out of Windows' clipboard history and cloud sync, and clears it after
-/// `after` unless something else was copied meanwhile.
+/// `after` (or when the app quits first) unless something else was copied meanwhile.
 pub fn copy(secret: Secret, after: Duration) -> Result<(), PortErr> {
     let mut clipboard = arboard::Clipboard::new().map_err(clipboard_err)?;
     #[cfg(windows)]
@@ -207,20 +226,33 @@ pub fn copy(secret: Secret, after: Duration) -> Result<(), PortErr> {
     }
     #[cfg(not(windows))]
     clipboard.set_text(secret.expose()).map_err(clipboard_err)?;
-    let n = COPIES.fetch_add(1, Ordering::SeqCst) + 1;
+    let n = {
+        let mut last = LAST_COPY.lock().unwrap_or_else(|e| e.into_inner());
+        let n = last.as_ref().map_or(1, |(m, _)| m + 1);
+        *last = Some((n, secret));
+        n
+    };
     std::thread::spawn(move || {
         std::thread::sleep(after);
-        if COPIES.load(Ordering::SeqCst) != n {
-            return;
-        }
-        if let Ok(mut c) = arboard::Clipboard::new() {
-            let now = c.get_text().map(Zeroizing::new);
-            if now.is_ok_and(|t| *t == secret.expose()) {
-                let _ = c.clear();
-            }
-        }
+        clear_copy(Some(n));
     });
     Ok(())
+}
+
+/// Clears the clipboard if it still holds the latest copy (`only`: that copy's number; `None`: whichever it is).
+pub fn clear_copy(only: Option<u64>) {
+    let mut last = LAST_COPY.lock().unwrap_or_else(|e| e.into_inner());
+    let Some((n, secret)) = last.as_ref() else { return };
+    if only.is_some_and(|o| o != *n) {
+        return;
+    }
+    if let Ok(mut c) = arboard::Clipboard::new() {
+        let now = c.get_text().map(Zeroizing::new);
+        if now.is_ok_and(|t| *t == secret.expose()) {
+            let _ = c.clear();
+        }
+    }
+    *last = None;
 }
 
 #[cfg(test)]
@@ -329,5 +361,22 @@ mod tests {
         assert_eq!(vault.status(&[id.into()]).unwrap()[0].codes, 2);
         vault.delete(id).unwrap();
         assert_eq!(vault.password(id).unwrap_err().code, "VAULT_NOT_FOUND");
+    }
+
+    /// `cargo test -- --ignored real_delete_all`: removes every entry of one service and none of a look-alike one.
+    #[test]
+    #[ignore]
+    #[cfg(windows)]
+    fn real_delete_all_takes_only_its_service() {
+        let mine = Vault::open("Postbell test");
+        let other = Vault::open("Postbell test other");
+        for id in ["self-test-a", "self-test-b"] {
+            mine.write(id, Some(s("ornek-sifre-123")), None, true).unwrap();
+        }
+        other.write("self-test-a", Some(s("ornek-sifre-456")), None, true).unwrap();
+        assert_eq!(mine.delete_all().unwrap(), 2);
+        assert_eq!(mine.password("self-test-a").unwrap_err().code, "VAULT_NOT_FOUND");
+        assert_eq!(other.password("self-test-a").unwrap().expose(), "ornek-sifre-456");
+        assert_eq!(other.delete_all().unwrap(), 1);
     }
 }

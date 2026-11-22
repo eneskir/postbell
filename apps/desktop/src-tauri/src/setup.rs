@@ -438,6 +438,10 @@ fn uninstall(ctx: &Ctx, remove_data: bool, progress: Progress) -> Result<(), Por
             UninstallStep::NsisLeftovers => nsis_leftovers(p)?,
             UninstallStep::InstallDir => remove_dir(&p.install_dir, PRODUCT_DIR, "UNINSTALL_DIR_LOCKED")?,
             UninstallStep::Data => {
+                // The passwords go first: a failure here leaves the store that names them for a retry.
+                // A run under a test root (`--setup-root`) never touches the real entries.
+                let service = if ctx.test_root.is_some() { crate::vault::TEST_SERVICE } else { crate::vault::SERVICE };
+                crate::vault::Vault::open(service).delete_all().map_err(|e| PortErr::new("UNINSTALL_VAULT_FAILED", e.detail))?;
                 remove_dir(&p.data_roaming, &ctx.identifier, "UNINSTALL_DATA_LOCKED")?;
                 remove_dir(&p.data_local, &ctx.identifier, "UNINSTALL_DATA_LOCKED")?;
                 remove_dir(&p.legacy_roaming, LEGACY_IDENTIFIER, "UNINSTALL_DATA_LOCKED")?;

@@ -65,6 +65,7 @@ const SETUP_ERRORS: Readonly<Record<string, readonly [title: string, fix: string
   SETUP_OPEN_FAILED: ["Postbell açılmadı", "Postbell'i Başlat menüsünden aç."],
   UNINSTALL_DIR_LOCKED: ["Kurulum klasörü silinemedi", "Klasörü açık tutan pencereyi kapatıp yeniden dene."],
   UNINSTALL_DATA_LOCKED: ["Postbell'in verisi silinemedi", "Klasörü açık tutan pencereyi kapatıp yeniden dene."],
+  UNINSTALL_VAULT_FAILED: ["Kayıtlı şifreler silinemedi", "Yeniden dene."],
   UNINSTALL_SHORTCUT_FAILED: ["Kısayol silinemedi", "Yeniden dene."],
   UNINSTALL_REGISTRY_FAILED: ["Windows kaydı silinemedi", "Yeniden dene."],
 };
