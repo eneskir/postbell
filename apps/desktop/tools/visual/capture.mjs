@@ -199,7 +199,7 @@ const scenes = [
     await away();
   }],
   ["today_v2--nav-resize-hover", "", async () => { await open(); await ungroup(); await away(); await hover(".nav-handle"); }],
-  ["today_v2--nav-group-drag", "?kayit=gruplar", async () => { await open(); const p = await at(".nav-group-toggle", "Müşteri B"); await dragTo(p, p.x + 96, 235); return cancelDrag; }],
+  ["today_v2--nav-group-drag", "?store=groups", async () => { await open(); const p = await at(".nav-group-toggle", "Müşteri B"); await dragTo(p, p.x + 96, 235); return cancelDrag; }],
   ["contents_v1--nav-collapsed", "", async () => { await open("Initech", "İçerikler"); await ungroup(); await collapse(); await away(); }],
   ["settings_v1--nav-collapsed", "", async () => { await open(); await ungroup(); await tap(".nav-row", "Ayarlar"); await collapse(); await away(); }],
   ["uygulama--surukle-rozet-ustunde", "", async () => {
@@ -210,9 +210,9 @@ const scenes = [
     say("  check:", await ev(`(() => { const r = document.querySelector('.nav-brand[data-brand="initech"]'); const row = r.closest(".nav-brand-row"); const b = r.querySelector(".nav-badge").getBoundingClientRect(); return "badge right " + Math.round(b.right) + ", ⋯ opacity " + getComputedStyle(row.querySelector(".nav-actions")).opacity + ", row background " + getComputedStyle(r).backgroundColor; })()`));
     return cancelDrag;
   }],
-  ["contents_v1--empty", "?paket=bos", async () => { await open("Initech", "İçerikler"); await away(); }],
-  ["contents_v1--error", "?paket=yok", async () => { await open("Initech", "İçerikler"); await away(); }],
-  ["uygulama--icerikler-okunamaz", "?paket=okunamaz", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["contents_v1--empty", "?packages=empty", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["contents_v1--error", "?packages=missing", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["uygulama--icerikler-okunamaz", "?packages=unreadable", async () => { await open("Initech", "İçerikler"); await away(); }],
   ["uygulama--icerikler-reddedilen", "", async () => { await open("Initech", "İçerikler"); await away(); }],
   ["brand-new_v1--default", "", async () => { await tap(".nav-row", "Marka ekle"); await away(); }],
   ["brand-settings_v1--default", "", async () => { await settings(); await away(); }],
@@ -237,11 +237,11 @@ const scenes = [
   ["uygulama--hesapsiz-marka-saatleri", "", async () => { await settings("Globex"); await away(); }],
   ["today_v2--default", "", async () => { await open(); await ungroup(); await row("09:00"); await away(); }],
   ["today_v2--no-selection", "", async () => { await open(); await ungroup(); await away(); }],
-  ["today_v2--empty", "?paket=gelecek", async () => { await open(); await ungroup(); await away(); }],
-  ["today_v2--brand-created", "?paket=gelecek", async () => { await ungroup(); await open("Globex"); await away(); }],
-  ["today_v2--loading", "?paket=bekle", async () => { await open(); await ungroup(); await away(); }],
-  ["today_v2--error", "?kayit=bozuk", async () => { await away(); }],
-  ["today_v2--file-missing", "?paket=dosyasiz", async () => { await open(); await ungroup(); await row("09:00"); await away(); }],
+  ["today_v2--empty", "?packages=future", async () => { await open(); await ungroup(); await away(); }],
+  ["today_v2--brand-created", "?packages=future", async () => { await ungroup(); await open("Globex"); await away(); }],
+  ["today_v2--loading", "?packages=wait", async () => { await open(); await ungroup(); await away(); }],
+  ["today_v2--error", "?store=corrupt", async () => { await away(); }],
+  ["today_v2--file-missing", "?packages=no-files", async () => { await open(); await ungroup(); await row("09:00"); await away(); }],
   ["today_v2--account-missing", "", async () => { await ungroup(); await open("Globex"); await row("X"); await away(); }],
   ["today_v2--hover-focus", "", async () => {
     await open();
@@ -255,14 +255,14 @@ const scenes = [
   ["today_v2--unscheduled-selected", "", async () => { await open(); await ungroup(); await clearTime("TikTok"); await row("TikTok"); await away(); }],
   ["today_v2--toast", "", async () => { await open(); await ungroup(); await row("09:00"); await tap("aside.panel button", "Metni kopyala"); await sleep(200); await away(); }],
   ["today-all_v1--default", "", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await away(); }],
-  ["today-all_v1--empty", "?paket=gelecek", async () => { await ungroup(); await expand(); await noDump(); await away(); }],
-  ["today-all_v1--loading", "?paket=bekle", async () => { await ungroup(); await expand(); await away(); }],
-  ["today-all_v1--first-run", "?kayit=yok", async () => { await noDump(); await away(); }],
-  ["uygulama--ana-sayfa-kismi-hata", "?paket=karisik", async () => { await ungroup(); await noDump(); await away(); }],
-  ["uygulama--ana-sayfa-kismi-hata-panel", "?paket=karisik", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await sleep(300); await away(); }],
+  ["today-all_v1--empty", "?packages=future", async () => { await ungroup(); await expand(); await noDump(); await away(); }],
+  ["today-all_v1--loading", "?packages=wait", async () => { await ungroup(); await expand(); await away(); }],
+  ["today-all_v1--first-run", "?store=missing", async () => { await noDump(); await away(); }],
+  ["uygulama--ana-sayfa-kismi-hata", "?packages=mixed", async () => { await ungroup(); await noDump(); await away(); }],
+  ["uygulama--ana-sayfa-kismi-hata-panel", "?packages=mixed", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await sleep(300); await away(); }],
   ["accounts_v1--default", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await away(); }],
-  ["accounts_v1--empty", "?paket=bos", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
-  ["accounts_v1--loading", "?paket=bekle", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
+  ["accounts_v1--empty", "?packages=empty", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
+  ["accounts_v1--loading", "?packages=wait", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
   ["accounts_v1--add-form", "", async () => { await ungroup(); await open("Globex", "Hesaplar"); await tap(".account-row", "Instagram"); await away(); }],
   ["accounts_v1--add-form-error", "", async () => {
     await ungroup();
@@ -288,16 +288,16 @@ const scenes = [
     await away();
   }],
   ["uygulama--kapat-hover", "", async () => { await open(); await ungroup(); await row("09:00"); await hover(".window-button-close"); }],
-  ["setup_v1--welcome", "?kurulum=setup", async () => {}, SETUP],
-  ["setup_v1--installing", "?kurulum=setup&bekle", async () => { await press("Kur", ".setup-busy"); await sleep(400); }, SETUP],
-  ["setup_v1--done", "?kurulum=setup", async () => { await press("Kur", ".setup-done"); }, SETUP],
-  ["setup_v1--update", "?kurulum=setup&durum=older", async () => {}, SETUP],
-  ["setup_v1--same", "?kurulum=setup&durum=same", async () => {}, SETUP],
-  ["setup_v1--newer", "?kurulum=setup&durum=newer", async () => {}, SETUP],
-  ["setup_v1--error", "?kurulum=setup&hata=SETUP_APP_RUNNING", async () => { await press("Kur", ".setup-error"); }, SETUP],
-  ["uninstall_v1--confirm", "?kurulum=uninstall", async () => {}, SETUP],
-  ["uninstall_v1--done", "?kurulum=uninstall", async () => { await press("Kaldır", ".setup-done"); }, SETUP],
-  ["uninstall_v1--error", "?kurulum=uninstall&hata=UNINSTALL_DIR_LOCKED", async () => { await press("Kaldır", ".setup-error"); }, SETUP],
+  ["setup_v1--welcome", "?setup=setup", async () => {}, SETUP],
+  ["setup_v1--installing", "?setup=setup&wait", async () => { await press("Kur", ".setup-busy"); await sleep(400); }, SETUP],
+  ["setup_v1--done", "?setup=setup", async () => { await press("Kur", ".setup-done"); }, SETUP],
+  ["setup_v1--update", "?setup=setup&installed=older", async () => {}, SETUP],
+  ["setup_v1--same", "?setup=setup&installed=same", async () => {}, SETUP],
+  ["setup_v1--newer", "?setup=setup&installed=newer", async () => {}, SETUP],
+  ["setup_v1--error", "?setup=setup&error=SETUP_APP_RUNNING", async () => { await press("Kur", ".setup-error"); }, SETUP],
+  ["uninstall_v1--confirm", "?setup=uninstall", async () => {}, SETUP],
+  ["uninstall_v1--done", "?setup=uninstall", async () => { await press("Kaldır", ".setup-done"); }, SETUP],
+  ["uninstall_v1--error", "?setup=uninstall&error=UNINSTALL_DIR_LOCKED", async () => { await press("Kaldır", ".setup-error"); }, SETUP],
   // «Saati geldi» must appear from the timer alone: shoot before 18:30, then wait past it with no input events.
   ["uygulama--saati-geldi", "?saat=18:29:35", async () => {
     await open();

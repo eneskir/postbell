@@ -26,9 +26,9 @@ function stubPort(text: string | null, packages: Record<string, PackageDir[]> = 
     alarms: { set: async () => ({ ok: true, value: undefined }), onOpen: () => () => {} },
     tray: { set: async () => ({ ok: true, value: undefined }) },
     store: {
-      load: async () => ({ ok: true, value: { path: "C:/veri/store.json", text } }),
+      load: async () => ({ ok: true, value: { path: "C:/data/store.json", text } }),
       save: async (s) => (saved.push(s), { ok: true, value: undefined }),
-      backup: async () => (backups++, { ok: true, value: "C:/veri/store.unreadable-1.json" }),
+      backup: async () => (backups++, { ok: true, value: "C:/data/store.unreadable-1.json" }),
     },
   };
   return { port, saved, backups: () => backups };
@@ -37,7 +37,7 @@ function stubPort(text: string | null, packages: Record<string, PackageDir[]> = 
 test("first launch writes the trial record", async () => {
   const s = stubPort(null);
   const d = await loadDump(s.port, NOW, true);
-  assert.deepEqual([d.state, d.records, d.storePath], ["ready", 1, "C:/veri/store.json"]);
+  assert.deepEqual([d.state, d.records, d.storePath], ["ready", 1, "C:/data/store.json"]);
   assert.equal(s.saved[0]?.records[0]?.share, SELF_TEST_SHARE);
 });
 
@@ -52,7 +52,7 @@ test("store with an unknown version: no file is written even when a trial record
 test("corrupt store: a copy is taken and the file is not overwritten", async () => {
   const s = stubPort("{bozuk");
   const d = await loadDump(s.port, NOW, true);
-  assert.deepEqual([d.state, d.backup], ["unreadable", "C:/veri/store.unreadable-1.json"]);
+  assert.deepEqual([d.state, d.backup], ["unreadable", "C:/data/store.unreadable-1.json"]);
   assert.equal(s.saved.length, 0);
 });
 
@@ -61,7 +61,7 @@ test("contents are counted from registered brand folders", async () => {
   const s = stubPort(serializeStore(store), { "D:/p": [{ dir: "a", manifest: "{", files: [] }] });
   const d = await loadDump(s.port, NOW, false);
   assert.deepEqual([d.contents, d.rejected, d.errors.length], [0, 1, 0]);
-  assert.equal(d.outsideRead, "folder-not-registered", "the store folder (C:/veri) is not a brand folder");
+  assert.equal(d.outsideRead, "folder-not-registered", "the store folder (C:/data) is not a brand folder");
   assert.deepEqual([d.preview, d.previewOutside], ["not tried", "not tried"]);
 });
 
@@ -81,7 +81,7 @@ test("preview probe: the first image in the folder loads, the store file's must 
   const s = stubPort(serializeStore(store), { "D:/p": [{ dir: "2026-11-12/a", manifest, files }] });
   const asked: string[] = [];
   const d = await loadDump(s.port, NOW, false, async (url) => (asked.push(url), url.startsWith("D:/p/") ? "160 x 90" : null));
-  assert.deepEqual(asked, ["D:/p/2026-11-12/a/images/card.png", "C:/veri/store.json"]);
+  assert.deepEqual(asked, ["D:/p/2026-11-12/a/images/card.png", "C:/data/store.json"]);
   assert.deepEqual([d.preview, d.previewOutside], ["160 x 90", "not loaded"]);
   const none = await loadDump(stubPort(serializeStore(store), { "D:/p": [{ dir: "2026-11-12/a", manifest, files: files.slice(0, 1) }] }).port, NOW, false, async () => "1 x 1");
   assert.deepEqual([none.preview, none.previewOutside], ["no image", "loaded"]);
