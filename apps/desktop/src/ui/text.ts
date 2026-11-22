@@ -326,6 +326,45 @@ export const text = {
     confirm: "Hesabı kaldır",
     cancel: "Vazgeç",
   },
+  // Ayarlar › Şifre kasası and its two dialogs (`settings/V1 · backup-dialog`, `· restore-dialog`, `· restore-error`).
+  backup: {
+    group: "Şifre kasası",
+    row: "Kasa",
+    rowNote: "Şifreler yalnız bu bilgisayarda durur.",
+    // «Son yedek: 3 Kasım»; another year adds it.
+    last: (at: LocalMs, today: LocalDate) => {
+      const day = dateOf(at);
+      const d = new Date(`${day}T00:00:00Z`);
+      const year = day.slice(0, 4) === today.slice(0, 4) ? "" : ` ${d.getUTCFullYear()}`;
+      return `Son yedek: ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}${year}`;
+    },
+    never: "Henüz yedek yok",
+    save: "Yedek al",
+    restore: "Yedekten yükle",
+    saveTitle: "Kasanın yedeğini al",
+    saveBody: "Parolayı unutursan yedek açılmaz; Postbell onu saklamaz.",
+    passphrase: "Yedek parolası",
+    passphraseHint: "En az 12 karakter.",
+    passphraseAgain: "Parolayı yeniden yaz",
+    mismatch: "Parolalar aynı değil.",
+    empty: "Kasada yedeklenecek şifre yok.",
+    saveButton: "Yedeği kaydet…",
+    saved: (n: number) => `${n} hesabın şifresi yedeğe alındı.`,
+    saveFailed: (code: string) => `Yedek kaydedilemedi. (${code})`,
+    restoreTitle: "Yedekten yükle",
+    restoreBody: "Aynı hesabın buradaki şifresi yedektekiyle değişir.",
+    file: "Yedek dosyası",
+    restoreButton: "Yükle",
+    unreadable: "Yedek açılamadı: parola yanlış ya da dosya bozuk. Kasada hiçbir şey değişmedi.",
+    restored: (n: number, skipped: number) => `${n} hesabın şifresi yüklendi${skipped > 0 ? `; ${skipped} hesap bu bilgisayarda yok` : ""}.`,
+    restoreFailed: (code: string) => `Yedek yüklenemedi; kasada hiçbir şey değişmedi. (${code})`,
+    pickFailed: (code: string) => `Yedek dosyası seçilemedi. (${code})`,
+    cancel: "Vazgeç",
+    // `accounts/V1 · backup-reminder`
+    reminder: (kind: "new-account" | "changed-password") =>
+      kind === "new-account" ? "Yeni hesabın şifresi yedekte yok. Bilgisayar değişirse kaybolur." : "Değişen şifre yedekte yok. Bilgisayar değişirse kaybolur.",
+    later: "Sonra",
+  },
   folder: {
     tag: "Yüklenemedi",
     missingTitle: "İçerik klasörüne ulaşılamıyor",

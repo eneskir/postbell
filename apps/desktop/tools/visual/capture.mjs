@@ -173,6 +173,29 @@ const scenes = [
   ["today_v2--nav-group-drag", "?store=groups", async () => { await open(); const p = await at(".nav-group-toggle", "Müşteri B"); await dragTo(p, p.x + 96, 235); return cancelDrag; }],
   ["contents_v1--nav-collapsed", "", async () => { await open("Initech", "İçerikler"); await ungroup(); await collapse(); await away(); }],
   ["settings_v1--nav-collapsed", "", async () => { await open(); await ungroup(); await tap(".nav-row", "Ayarlar"); await collapse(); await away(); }],
+  ["settings_v1--default", "?store=backup", async () => { await tap(".nav-row", "Ayarlar"); await away(); }],
+  ["settings_v1--backup-dialog", "?store=backup", async () => {
+    await tap(".nav-row", "Ayarlar");
+    await tap(".setting-control .button", "Yedek al");
+    await retype("ornek-parola-uzun");
+    await ev(`document.querySelectorAll("dialog input")[1].focus()`);
+    await retype("ornek-parola-uzun");
+    await away();
+  }],
+  ["settings_v1--restore-dialog", "?store=backup", async () => {
+    await tap(".nav-row", "Ayarlar");
+    await tap(".setting-control .button", "Yedekten yükle");
+    await retype("ornek-parola-uzun");
+    await away();
+  }],
+  ["settings_v1--restore-error", "?store=backup", async () => {
+    await tap(".nav-row", "Ayarlar");
+    await tap(".setting-control .button", "Yedekten yükle");
+    await retype("yanlis-parola-123");
+    await tap("dialog .button", "Yükle");
+    await away();
+  }],
+  ["accounts_v1--backup-reminder", "?store=backup", async () => { await ungroup(); await open("Initech", "Hesaplar"); await away(); }],
   ["app--drag-over-badge", "", async () => {
     await open();
     const p = await at(".nav-brand", "Globex");

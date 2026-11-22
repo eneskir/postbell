@@ -184,6 +184,11 @@
   font: var(--text-caption);
 }
 
+.form-field-hint {
+  color: var(--color-text-muted);
+  font: var(--text-caption);
+}
+
 .field-block {
   width: 100%;
 }

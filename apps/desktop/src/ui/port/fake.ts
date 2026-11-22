@@ -209,7 +209,7 @@ export const fakePort: Port = {
     },
     async pick() {
       backupPicked = backupScenario() !== "cancel";
-      return { ok: true, value: backupPicked ? "Postbell yedeği 2026-11-12.age" : null };
+      return { ok: true, value: backupPicked ? "D:\\Yedek\\postbell-kasa-2026-11-12.age" : null };
     },
     async restore(passphrase, accounts) {
       if (!backupPicked) return { ok: false, error: { code: "backup-not-picked", detail: "fake shell" } };
@@ -228,11 +228,13 @@ export const fakePort: Port = {
     },
   },
   store: {
-    // `?store=`: missing (first run), corrupt, newer (newer version), wait (never resolves), groups (extra closed empty group), finished (done and skipped records).
+    // `?store=`: missing (first run), corrupt, newer (newer version), wait (never resolves), groups (extra closed empty group), finished (done and skipped records),
+    // backup (last backup on 3 Kasım and a new account since, as `accounts/V1 · backup-reminder` and `settings/V1 · default`).
     async load() {
       const scenario = new URLSearchParams(location.search).get("store");
       if (scenario === "wait") return new Promise(() => undefined);
       if (scenario === "missing") store = emptyStore();
+      if (scenario === "backup" && store.backup.last === undefined) store = { ...store, backup: { last: at(parseDate("2026-11-03") as LocalDate, T("10:00")), pending: "new-account" } };
       if (scenario === "groups" && !store.groups.some((g) => g.id === "musteri-b"))
         store = { ...store, groups: [...store.groups, { id: "musteri-b", name: "Müşteri B", open: false, brands: [] }] };
       if ((scenario === "finished" || scenario === "history") && store.records.length === 0) {
