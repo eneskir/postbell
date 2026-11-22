@@ -358,11 +358,13 @@ const scenes = [
     await tap("aside.panel button", "Hesabı kaydet");
     await away();
   }],
-  ["accounts_v1--edit-form", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await tap(".account-row-main", "Instagram @initech, düzenle"); await away(); }],
+  ["app--account-detail", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await tap(".account-row-main", "Instagram @initech"); await away(); }],
+  ["accounts_v1--edit-form", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await tap(".account-row-main", "Instagram @initech"); await tap("aside.panel button", "Bilgileri düzenle"); await away(); }],
   ["accounts_v1--remove-confirm", "", async () => {
     await ungroup();
     await open("Initech", "Hesaplar");
-    await tap(".account-row-main", "Instagram @initech, düzenle");
+    await tap(".account-row-main", "Instagram @initech");
+    await tap("aside.panel button", "Bilgileri düzenle");
     await tap("aside.panel button", "Hesabı kaldır…");
     await away();
   }],

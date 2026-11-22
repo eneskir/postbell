@@ -2,7 +2,7 @@ import type { ContentFile, Language, Platform } from "../core/manifest.ts";
 import type { SetupStep } from "../core/accounts.ts";
 import type { ContentGroup, ContentTag } from "../core/contents.ts";
 import type { HistoryFilter } from "../core/history.ts";
-import { networkOf, plannedDate, type Network, type Share, type ShareRecord, type TodayGroups } from "../core/shares.ts";
+import { networkOf, plannedDate, type Network, type Share, type ShareRecord, type TodayGroups, type TwoStep } from "../core/shares.ts";
 import { DAY, dateOf, formatTime, timeOf, type LocalDate, type LocalMs, type TimeOfDay } from "../core/time.ts";
 import type { PackageRejection } from "../core/packages.ts";
 import type { BrandProblem } from "../core/today.ts";
@@ -119,6 +119,8 @@ const networkName = (p: Platform) => NETWORK_NAMES[networkOf(p)][0];
 const networkAtOf = (n: Network) => `${NETWORK_NAMES[n][0]}'${NETWORK_NAMES[n][1]}`;
 
 const LANGUAGE_NAMES = { en: "İngilizce", tr: "Türkçe" } satisfies Record<Language, string>;
+const TWO_STEP_NAMES: Record<TwoStep, string> = { none: "Yok", app: "Doğrulama uygulaması", sms: "SMS", email: "E-posta", key: "Güvenlik anahtarı" };
+
 const accountLabel = (n: Network, language: Language | null) => (language ? `${NETWORK_NAMES[n][0]} (${LANGUAGE_NAMES[language]})` : NETWORK_NAMES[n][0]);
 
 // File size in base 1024 like Windows Explorer; one decimal below 10.
@@ -243,22 +245,34 @@ export const text = {
     summary: (total: number, missing: number) =>
       missing === 0 ? `${total} hesap.` : missing === total ? `${total} hesap eklenmedi.` : `${total} hesap, ${missing}'${possessive(missing)} eklenmedi.`,
     loading: "Hesaplar yükleniyor…",
-    head: { network: "Platform", handle: "Kullanıcı adı", language: "İçerik dili" },
+    head: { network: "Platform", handle: "Kullanıcı adı", email: "E-posta", twoStep: "2 adımlı" },
     network: (n: Network) => NETWORK_NAMES[n][0],
     language: (l: Language) => LANGUAGE_NAMES[l],
     label: accountLabel,
     none: "–",
+    // Table cell: whether the account has 2-step verification; empty when the user has not said.
+    twoStepShort: (t: TwoStep | undefined) => (t === undefined ? "–" : t === "none" ? "Yok" : "Var"),
+    twoStepName: (t: TwoStep) => TWO_STEP_NAMES[t],
+    twoStepUnset: "Belirtilmedi",
     add: "Hesap ekle",
-    editLabel: (n: Network, handle: string) => `${NETWORK_NAMES[n][0]} ${handle}, düzenle`,
     emptyTitle: "İlk hesabını ekle",
     emptyBody: "İlk hesabı ekle; paylaşımlar hesaplarına düşer.",
     eyebrowNew: "Hesap ekle",
     eyebrowEdit: "Hesabı düzenle",
+    eyebrowView: "Hesap",
+    detail: { language: "Dil", email: "E-posta", twoStep: "2 adımlı", recoveryEmail: "Kurtarma", note: "Not" },
+    editDetails: "Bilgileri düzenle",
+    openLabel: (n: Network, handle: string) => `${NETWORK_NAMES[n][0]} ${handle}`,
     newTitle: (n: Network, language: Language | null) => `${accountLabel(n, language)} hesabı ekle`,
     editTitle: (handle: string, n: Network) => `${handle} · ${NETWORK_NAMES[n][0]}`,
     fieldNetwork: "Platform",
     fieldHandle: "Kullanıcı adı",
     fieldLanguage: "İçerik dili",
+    fieldEmail: "E-posta",
+    fieldTwoStep: "2 adımlı doğrulama",
+    fieldRecoveryEmail: "Kurtarma e-postası",
+    fieldNote: "Not",
+    optional: "İsteğe bağlı",
     handleEmpty: "Kullanıcı adını yaz; hesabı Postbell'de bu adla görürsün.",
     handleTaken: "Bu hesap zaten ekli.",
     languageTaken: (n: Network, by: string) => `${networkAtOf(n)} bu dilde ${by} var; her dilde tek hesap olur.`,

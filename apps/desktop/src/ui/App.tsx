@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { accountRows, addAccount, draftFor, removeAccount, setupStepOf, updateAccount, type AccountDraft } from "../core/accounts.ts";
+import { accountRows, addAccount, draftFor, draftOf, removeAccount, setupStepOf, updateAccount, type AccountDraft } from "../core/accounts.ts";
 import { alarmsOf, DEFAULT_NOTIFY } from "../core/alarms.ts";
 import type { AppInfo, ParseResult } from "../core/app-info.ts";
 import { addBrand, removeBrand, type BrandDraft } from "../core/brands.ts";
@@ -11,7 +11,7 @@ import { contentRowOf, contentsView, skipLeft, type ContentRow } from "../core/c
 import { contentKeyOf, fileKeyOf, lateCount, networkOf, type AccountId, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "../core/shares.ts";
 import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
 import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
-import { AccountForm, AccountsPage, type AccountSelection } from "./accounts-page.tsx";
+import { AccountDetail, AccountForm, AccountsPage, type AccountSelection } from "./accounts-page.tsx";
 import { CalendarPage } from "./calendar-page.tsx";
 import { HistoryPage } from "./history-page.tsx";
 import { ContentPanel, ContentsPage, type ContentActions } from "./contents-page.tsx";
@@ -288,8 +288,12 @@ export function App({ port }: { port: Port }) {
     const r = s && updateAccount(s, id, d);
     if (!r?.ok) return;
     update(() => r.store);
-    setPanel({ kind: "closed" });
-    focusAccount(id);
+    showDetail(id);
+  };
+  // Back from the form to the account's details; focus goes to «Bilgileri düzenle».
+  const showDetail = (id: AccountId) => {
+    setPanel({ kind: "account", account: id });
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(".account-detail-end button")?.focus());
   };
   const askRemoveAccount = (id: AccountId) => setRemovingAccount({ id, back: document.activeElement instanceof HTMLElement ? document.activeElement : null });
   const confirmRemoveAccount = () => {
@@ -455,7 +459,7 @@ export function App({ port }: { port: Port }) {
   });
   const removingBrand = removing && store?.brands.find((b) => b.id === removing.brand);
   const removedAccount = removingAccount && store?.accounts.find((a) => a.id === removingAccount.id);
-  const editing = panel.kind === "account" ? store?.accounts.find((a) => a.id === panel.account) : undefined;
+  const shownAccount = panel.kind === "account" ? store?.accounts.find((a) => a.id === panel.account) : undefined;
   const selectedShare = panel.kind === "share" ? shares.find((s) => s.id === panel.share) : undefined;
   const place = selectedShare ? placeOf(selectedShare) : null;
   const selectedContent = panel.kind === "content" && contents ? contentRowOf(contents, panel.content) : null;
@@ -506,25 +510,31 @@ export function App({ port }: { port: Port }) {
           content: <ContentPanel key={selectedContent.key} row={selectedContent} size={contentPlace?.size ?? null} url={urlOf(contentPlace)} actions={contentActionsOf(selectedContent)} />,
           onClose: closePanel,
         }
-    : editing && store
-      ? {
-          eyebrow: text.accounts.eyebrowEdit,
-          content: (
-            <AccountForm
-              key={editing.id}
-              store={store}
-              brand={editing.brand}
-              initial={{ network: editing.network, handle: editing.handle, language: editing.language }}
-              self={editing.id}
-              networkFixed
-              title={() => text.accounts.editTitle(editing.handle, editing.network)}
-              onSave={(d) => saveAccount(editing.id, d)}
-              onCancel={closePanel}
-              onRemove={() => askRemoveAccount(editing.id)}
-            />
-          ),
-          onClose: closePanel,
-        }
+    : shownAccount && store
+      ? panel.kind === "account" && panel.editing
+        ? {
+            eyebrow: text.accounts.eyebrowEdit,
+            content: (
+              <AccountForm
+                key={shownAccount.id}
+                store={store}
+                brand={shownAccount.brand}
+                initial={draftOf(shownAccount)}
+                self={shownAccount.id}
+                networkFixed
+                title={() => text.accounts.editTitle(shownAccount.handle, shownAccount.network)}
+                onSave={(d) => saveAccount(shownAccount.id, d)}
+                onCancel={() => showDetail(shownAccount.id)}
+                onRemove={() => askRemoveAccount(shownAccount.id)}
+              />
+            ),
+            onClose: closePanel,
+          }
+        : {
+            eyebrow: text.accounts.eyebrowView,
+            content: <AccountDetail key={shownAccount.id} account={shownAccount} onEdit={() => setPanel({ kind: "account", account: shownAccount.id, editing: true })} />,
+            onClose: closePanel,
+          }
       : panel.kind === "account-new" && store && route.kind === "brand"
         ? {
             eyebrow: text.accounts.eyebrowNew,

@@ -134,3 +134,31 @@ test("setup step: no account, then no times at all, then none once any time is s
   assert.equal(setupStepOf([x], P), "enter-times");
   assert.equal(setupStepOf([x, { ...acc("initech-tiktok", "tiktok", "@p", "en"), times: { tiktok: T("18:30") } }], P), null);
 });
+
+test("details: trimmed, inner spaces and invisible characters folded, empty fields left out, long text cut", () => {
+  const r = addAccount(base, P, draft({ email: "  name@example.com ", twoStep: "app", recoveryEmail: "   ", note: "Creator​  account\nThreads uses it" }));
+  assert.ok(r.ok);
+  const a = r.store.accounts.find((x) => x.id === r.id)!;
+  assert.deepEqual(
+    { email: a.email, twoStep: a.twoStep, note: a.note, hasRecovery: "recoveryEmail" in a },
+    { email: "name@example.com", twoStep: "app", note: "Creator account Threads uses it", hasRecovery: false },
+  );
+  const long = addAccount(base, P, draft({ note: "ş".repeat(600) }));
+  assert.ok(long.ok);
+  assert.equal([...long.store.accounts.find((x) => x.id === long.id)!.note!].length, 500);
+  assert.equal(parseStoreText(serializeStore(long.store)).kind, "ready");
+});
+
+test("update: details are replaced as a whole and survive the store file; the same details write nothing", () => {
+  const id = "initech-instagram" as AccountId;
+  const filled = updateAccount(base, id, { handle: "@initech", language: "en", email: "name@example.com", twoStep: "none", note: "Old" });
+  assert.ok(filled.ok);
+  const again = updateAccount(filled.store, id, { handle: "@initech", language: "en", email: " name@example.com", twoStep: "none", note: "Old " });
+  assert.ok(again.ok);
+  assert.equal(again.store, filled.store);
+  const cleared = updateAccount(filled.store, id, { handle: "@initech", language: "en", twoStep: "sms" });
+  assert.ok(cleared.ok);
+  const a = cleared.store.accounts.find((x) => x.id === id)!;
+  assert.deepEqual([a.email, a.twoStep, a.note], [undefined, "sms", undefined]);
+  assert.deepEqual(parseStoreText(serializeStore(cleared.store)), { kind: "ready", store: cleared.store });
+});

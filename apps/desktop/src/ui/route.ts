@@ -20,7 +20,7 @@ export type PanelState =
   | { readonly kind: "closed" }
   | { readonly kind: "share"; readonly share: ShareId }
   | { readonly kind: "content"; readonly content: ContentKey }
-  | { readonly kind: "account"; readonly account: AccountId }
+  | { readonly kind: "account"; readonly account: AccountId; readonly editing?: boolean }
   | { readonly kind: "account-new"; readonly draft: AccountDraft; readonly row: { readonly languageShown: boolean } | null };
 
 export function rowPick(current: PanelState, next: PanelState): PanelState {
