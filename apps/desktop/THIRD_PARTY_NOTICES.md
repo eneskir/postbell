@@ -4407,9 +4407,9 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-## form_urlencoded 1.2.2
+## form_urlencoded 1.2.3
 
-- form_urlencoded 1.2.2 (crates.io, MIT OR Apache-2.0)
+- form_urlencoded 1.2.3 (crates.io, MIT OR Apache-2.0)
 
 ```text
 Apache License
@@ -5684,11 +5684,11 @@ Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
 ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 ```
 
-## idna 1.1.0, percent-encoding 2.3.2, url 2.5.8
+## idna 1.1.0, percent-encoding 2.3.2, url 2.5.9
 
 - idna 1.1.0 (crates.io, MIT OR Apache-2.0)
 - percent-encoding 2.3.2 (crates.io, MIT OR Apache-2.0)
-- url 2.5.8 (crates.io, MIT OR Apache-2.0)
+- url 2.5.9 (crates.io, MIT OR Apache-2.0)
 
 ```text
 Apache License

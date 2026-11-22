@@ -16,6 +16,7 @@ const steps = [
   ["contract up to date", "node tools/contract.mjs --check"],
   ["tests", 'node --test "src/**/*.test.ts" "tools/**/*.test.mjs"'],
   ["license notices", "node tools/notices.mjs --check"],
+  ["known advisories", "node tools/advisories.mjs"],
   ["old name", "node tools/check-name.mjs"],
   ["Rust tests", `${cargo} test --locked --offline --manifest-path src-tauri/Cargo.toml`],
 ];
