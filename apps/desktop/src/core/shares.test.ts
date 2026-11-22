@@ -113,12 +113,12 @@ test("a format without a time is unscheduled: never due or late, not in the badg
 test("day boundary: 23:59 and 00:01 shares fall on their own day; yesterday's late share is in today's late group", () => {
   const contents = [content("yesterday", "2026-11-10", ["x"]), content("today", "2026-11-11", ["tiktok"])];
   const shares = deriveShares(input({ contents, accounts: accountsAt({ x: "23:59", tiktok: "00:01" }), now: NOW("2026-11-11", "00:00") }));
-  const dun = shares.find((s) => s.content.id === "yesterday")!;
-  const bugun = shares.find((s) => s.content.id === "today")!;
-  assert.deepEqual(dun.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 10, 23, 59) });
-  assert.deepEqual(bugun.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 11, 0, 1) });
-  assert.equal(dun.status.kind, "due");
-  assert.equal(bugun.status.kind, "upcoming");
+  const yesterday = shares.find((s) => s.content.id === "yesterday")!;
+  const today = shares.find((s) => s.content.id === "today")!;
+  assert.deepEqual(yesterday.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 10, 23, 59) });
+  assert.deepEqual(today.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 11, 0, 1) });
+  assert.equal(yesterday.status.kind, "due");
+  assert.equal(today.status.kind, "upcoming");
   const midnight = todayGroups(shares, D("2026-11-11"));
   assert.deepEqual(midnight.upcoming.map((s) => s.content.id), ["yesterday", "today"], "a share due yesterday stays after midnight");
   const later = deriveShares(input({ contents, accounts: accountsAt({ x: "23:59", tiktok: "00:01" }), now: NOW("2026-11-11", "09:00") }));

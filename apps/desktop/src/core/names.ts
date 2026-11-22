@@ -14,7 +14,7 @@ export function cleanName(name: string): string | null {
 const nameKey = (n: string) => lowerWord(cleanName(n) ?? "").replaceAll("ı", "i");
 export const sameName = (a: string, b: string): boolean => nameKey(a) === nameKey(b);
 
-const ASCII: Readonly<Record<string, string>> = { ç: "c", ğ: "g", ı: "i", i: "i", ö: "o", ş: "s", ü: "u" };
+const ASCII: Readonly<Record<string, string>> = { "ç": "c", "ğ": "g", "ı": "i", "i": "i", "ö": "o", "ş": "s", "ü": "u" };
 
 // At most 36 characters, leaving room for a number suffix within the 40-character id limit.
 export function slug(name: string, fallback: string): string {
