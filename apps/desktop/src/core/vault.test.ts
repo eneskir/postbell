@@ -26,7 +26,8 @@ test("an edit changes only the fields typed in; empty fields keep the stored val
 });
 
 test("the password keeps its spaces: only codes are trimmed", () => {
-  assert.equal(vaultChangeOf({ password: " a b ", codes: "" }, false)?.password, " a b ");
+  const spaced = ` ${PW} `;
+  assert.equal(vaultChangeOf({ password: spaced, codes: "" }, false)?.password, spaced);
 });
 
 test("Threads without its own password signs in with Instagram", () => {
