@@ -303,21 +303,28 @@ export function App({ port }: { port: Port }) {
     const s = storeRef.current;
     const r = s && addAccount(s, brand, d);
     if (!r?.ok) return null;
+    // Always a full replace, so a new account never shows what an earlier one with the same id left in the vault.
     const change = vaultChangeOf(secrets, true);
-    if (change && hasSecrets(change)) {
+    if (change) {
       const w = await port.vault.write(r.id, change);
-      if (!w.ok) {
+      // Without typed secrets, an unavailable vault holds nothing this account could show, so it is still added.
+      if (!w.ok && (hasSecrets(change) || w.error.code !== "vault-unavailable")) {
         vaultFailed(w.error);
         return vaultWriteError(w.error);
       }
-    } else if (change) {
-      // Clears what an earlier account with the same id may have left in the vault.
-      void port.vault.write(r.id, change);
+      if (!w.ok) vaultFailed(w.error);
     }
+    // The store may have changed while the vault was written; an entry whose account did not land is deleted.
+    let landed = false;
     update((cur) => {
       const again = addAccount(cur, brand, d);
-      return again.ok ? again.store : cur;
+      landed = again.ok && again.id === r.id;
+      return landed && again.ok ? again.store : cur;
     });
+    if (!landed) {
+      void port.vault.remove(r.id).then(reloadVault);
+      return null;
+    }
     reloadVault();
     setPanel({ kind: "closed" });
     focusAccount(r.id);
@@ -336,12 +343,17 @@ export function App({ port }: { port: Port }) {
         vaultFailed(w.error);
         return vaultWriteError(w.error);
       }
-      reloadVault();
     }
+    // An account removed while the vault was written takes its entry with it.
+    let kept = false;
     update((cur) => {
       const again = updateAccount(cur, id, d);
+      kept = cur.accounts.some((a) => a.id === id);
       return again.ok ? again.store : cur;
     });
+    if (change && !kept) void port.vault.remove(id);
+    if (change) reloadVault();
+    if (!kept) return null;
     showDetail(id);
     return null;
   };
