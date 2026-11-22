@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { alarmsOf, DEFAULT_NOTIFY } from "../core/alarms.ts";
+import { alarmsOf } from "../core/alarms.ts";
+import { DEFAULT_SETTINGS } from "../core/settings.ts";
 import { parseAlarmTarget } from "../core/port.ts";
 import { deriveShares, type Account, type AccountId, type BrandId } from "../core/shares.ts";
 import { testContent } from "../core/test-content.ts";
@@ -28,7 +29,7 @@ test("notification texts match the design; local time becomes a real instant; th
     missingFiles: new Set(),
     now: at(day, T("08:00")),
   });
-  const plan = alarmPlan(alarmsOf(shares, [P], DEFAULT_NOTIFY), shares, () => "Initech", (l) => l + 1);
+  const plan = alarmPlan(alarmsOf(shares, [P], DEFAULT_SETTINGS), shares, () => "Initech", (l) => l + 1);
   assert.deepEqual(
     plan.alarms.map((a) => [a.title, a.body, a.label]),
     [
@@ -49,7 +50,7 @@ test("notification texts match the design; local time becomes a real instant; th
     target: { brand: "initech", share: "initech/dog/x" },
   });
   assert.deepEqual(plan.texts, { open: "Aç", openHome: "Ana sayfayı aç", many: "{n} paylaşımın saati geldi" });
-  const hour = alarmPlan(alarmsOf(shares, [P], { enabled: true, remindAfter: 60 }), shares, () => "Initech", (l) => l);
+  const hour = alarmPlan(alarmsOf(shares, [P], { notifyOnTime: true, reminderInterval: 60 }), shares, () => "Initech", (l) => l);
   assert.equal(hour.alarms[1]?.title, "1 saat gecikti: @initech · X");
 });
 

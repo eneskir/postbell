@@ -1,12 +1,13 @@
 import { LANGUAGES, type Platform } from "./manifest.ts";
 import { validate, type Schema } from "./schema.ts";
+import { BRAND_PAGES, DEFAULT_SETTINGS, HOME, REMINDER_INTERVALS, START_SCREENS, type BrandPage, type Place, type Settings } from "./settings.ts";
 import { FORMATS, formatsOf, NETWORKS, TWO_STEP, type Account, type AccountDetails, type AccountId, type BrandId, type Network, type PlannedAt, type ShareId, type ShareRecord, type Times, type TwoStep } from "./shares.ts";
 import { formatLocal, formatTime, parseDate, parseLocal, parseTime, TIME_PATTERN, type LocalMs, type TimeOfDay } from "./time.ts";
 
 // Version 2 added the account details (e-mail, 2-step type, recovery e-mail, note) and the title and planned time on
-// records; version 3 the vault backup state. An older file reads as version 3 with the newer fields absent; the next
-// save writes version 3.
-export const STORE_VERSION = 3;
+// records; version 3 the vault backup state; version 4 the app settings and the last open page. An older file reads as
+// version 4 with the newer fields at their defaults; the next save writes version 4.
+export const STORE_VERSION = 4;
 
 export type Brand = {
   readonly id: BrandId;
@@ -29,10 +30,11 @@ export type StoreFile = {
   readonly groups: readonly Group[];
   readonly accounts: readonly Account[];
   readonly records: readonly ShareRecord[];
-  // No app setting is stored yet; the empty object is part of the format since version 1.
-  readonly settings: Readonly<Record<string, never>>;
+  readonly settings: Settings;
   readonly sidebar: Sidebar;
   readonly backup: BackupState;
+  // Where «Açılış ekranı: Son açık sayfa» opens.
+  readonly lastPage: Place;
 };
 
 export const EMAIL_MAX = 254;
@@ -48,9 +50,10 @@ export const emptyStore = (): StoreFile => ({
   groups: [],
   accounts: [],
   records: [],
-  settings: {},
+  settings: DEFAULT_SETTINGS,
   sidebar: { collapsed: false, width: SIDEBAR_DEFAULT, openBrands: [] },
   backup: {},
+  lastPage: HOME,
 });
 
 const SLUG = "^[a-z0-9]+(?:-[a-z0-9]+)*$";
@@ -82,8 +85,23 @@ const recordV1: Record<string, Schema> = {
 const recordV2: Record<string, Schema> = { ...recordV1, title: str(300), planned: { type: "string", pattern: `${LOCAL_MINUTE}|${LOCAL_DAY}` } };
 
 const backupSchema = obj({ last: { type: "string", pattern: LOCAL_MINUTE }, pending: { type: "string", enum: BACKUP_PENDING }, later: { type: "boolean", const: true } }, []);
+// An absent setting takes its default, so a file needs only the ones it changed.
+const settingsSchema = obj(
+  {
+    notifyOnTime: { type: "boolean" },
+    reminderInterval: { type: "integer", enum: REMINDER_INTERVALS },
+    startScreen: { type: "string", enum: START_SCREENS },
+    launchAtLogin: { type: "boolean" },
+    closeToTray: { type: "boolean" },
+  },
+  [],
+);
+// Which fields a kind takes is checked in `placeOf`.
+const PLACE_KINDS: readonly Place["kind"][] = ["home", "history", "settings", "brand", "brand-settings"];
+const placeSchema = obj({ kind: { type: "string", enum: PLACE_KINDS }, brand: str(40, { pattern: SLUG }), page: { type: "string", enum: BRAND_PAGES } }, ["kind"]);
 
-const storeSchema = (version: 1 | 2 | 3): Schema => {
+type Version = 1 | 2 | 3 | 4;
+const storeSchema = (version: Version): Schema => {
   const base: Record<string, Schema> = {
   version: { type: "integer", const: version },
   brands: {
@@ -101,14 +119,16 @@ const storeSchema = (version: 1 | 2 | 3): Schema => {
   },
   accounts: { type: "array", items: version === 1 ? obj(accountV1) : obj(accountV2, Object.keys(accountV1)) },
   records: { type: "array", items: version === 1 ? obj(recordV1) : obj(recordV2, Object.keys(recordV1)) },
-  settings: obj({}, []),
+  settings: version === 4 ? settingsSchema : obj({}, []),
   sidebar: obj({
     collapsed: { type: "boolean" },
     width: { type: "integer", minimum: SIDEBAR_MIN, maximum: SIDEBAR_MAX },
     openBrands: { type: "array", items: str(40, { pattern: SLUG }) },
   }),
   };
-  return version === 3 ? obj({ ...base, backup: backupSchema }) : obj(base);
+  if (version < 3) return obj(base);
+  const withBackup = { ...base, backup: backupSchema };
+  return version === 3 ? obj(withBackup) : obj({ ...withBackup, lastPage: placeSchema }, [...Object.keys(withBackup)]);
 };
 
 export type StoreState =
@@ -129,7 +149,7 @@ export function parseStoreText(text: string | null): StoreState {
   }
   const version = typeof raw === "object" && raw !== null ? (raw as { version?: unknown }).version : undefined;
   if (typeof version === "number" && Number.isInteger(version) && version > STORE_VERSION) return { kind: "newer-version", version };
-  const v = validate(storeSchema(version === 1 || version === 2 ? version : 3), raw);
+  const v = validate(storeSchema(version === 1 || version === 2 || version === 3 ? version : 4), raw);
   if (v) return { kind: "unreadable", reason: "invalid-shape", path: v.path, rule: v.rule };
   const r = raw as RawStore;
   const records: ShareRecord[] = [];
@@ -173,6 +193,9 @@ export function parseStoreText(text: string | null): StoreState {
     if (!known.has(b)) return { kind: "unreadable", reason: "invalid-shape", path: `sidebar.openBrands[${i}]`, rule: "brand-ref" };
   const last = r.backup?.last === undefined ? undefined : parseLocal(r.backup.last);
   if (last === null) return { kind: "unreadable", reason: "invalid-shape", path: "backup.last", rule: "calendar" };
+  const lastPage = r.lastPage === undefined ? HOME : placeOf(r.lastPage);
+  if (lastPage === null) return { kind: "unreadable", reason: "invalid-shape", path: "lastPage", rule: "kind" };
+  if ("brand" in lastPage && !known.has(lastPage.brand)) return { kind: "unreadable", reason: "invalid-shape", path: "lastPage.brand", rule: "brand-ref" };
   return {
     kind: "ready",
     store: {
@@ -181,23 +204,41 @@ export function parseStoreText(text: string | null): StoreState {
       groups: r.groups.map((g) => ({ id: g.id, name: g.name, open: g.open, brands: g.brands as BrandId[] })),
       accounts,
       records,
-      settings: {},
+      settings: { ...DEFAULT_SETTINGS, ...r.settings },
       sidebar: { collapsed: r.sidebar.collapsed, width: r.sidebar.width, openBrands: r.sidebar.openBrands as BrandId[] },
       backup: { ...(last ? { last } : {}), ...(r.backup?.pending ? { pending: r.backup.pending } : {}), ...(r.backup?.later ? { later: true as const } : {}) },
+      lastPage,
     },
   };
 }
 
-// Versions 1 and 2 are version 3 without the newer fields.
+// Versions 1 to 3 are version 4 without the newer fields.
 type RawStore = {
   brands: { id: string; name: string; sticker: string; folder: string }[];
   groups: { id: string; name: string; open: boolean; brands: string[] }[];
   accounts: ({ id: string; brand: string; network: Network; handle: string; language: Account["language"]; times: Record<string, string> } & RawDetails)[];
   records: { share: string; status: "done" | "skipped"; at: string; title?: string; planned?: string }[];
+  settings: Partial<Settings>;
   sidebar: { collapsed: boolean; width: number; openBrands: string[] };
   backup?: { last?: string; pending?: BackupPending; later?: true };
+  lastPage?: RawPlace;
 };
 type RawDetails = { email?: string; twoStep?: TwoStep; recoveryEmail?: string; note?: string };
+type RawPlace = { kind: Place["kind"]; brand?: string; page?: BrandPage };
+
+// A brand place needs its brand, a brand page also its page; the others take neither.
+function placeOf(p: RawPlace): Place | null {
+  switch (p.kind) {
+    case "home":
+    case "history":
+    case "settings":
+      return p.brand === undefined && p.page === undefined ? { kind: p.kind } : null;
+    case "brand":
+      return p.brand !== undefined && p.page !== undefined ? { kind: "brand", brand: p.brand as BrandId, page: p.page } : null;
+    case "brand-settings":
+      return p.brand !== undefined && p.page === undefined ? { kind: "brand-settings", brand: p.brand as BrandId } : null;
+  }
+}
 
 // An absent field stays absent, so a store read back equals the one written.
 function detailsOf(d: AccountDetails): AccountDetails {
@@ -236,13 +277,20 @@ export function serializeStore(s: StoreFile): string {
       ...(r.title === undefined ? {} : { title: r.title }),
       ...(r.planned === undefined ? {} : { planned: plannedText(r.planned) }),
     })),
-    settings: s.settings,
+    settings: {
+      notifyOnTime: s.settings.notifyOnTime,
+      reminderInterval: s.settings.reminderInterval,
+      startScreen: s.settings.startScreen,
+      launchAtLogin: s.settings.launchAtLogin,
+      closeToTray: s.settings.closeToTray,
+    },
     sidebar: { collapsed: s.sidebar.collapsed, width: s.sidebar.width, openBrands: s.sidebar.openBrands },
     backup: {
       ...(s.backup.last === undefined ? {} : { last: formatLocal(s.backup.last) }),
       ...(s.backup.pending === undefined ? {} : { pending: s.backup.pending }),
       ...(s.backup.later ? { later: true } : {}),
     },
+    lastPage: { kind: s.lastPage.kind, ...("brand" in s.lastPage ? { brand: s.lastPage.brand } : {}), ...(s.lastPage.kind === "brand" ? { page: s.lastPage.page } : {}) },
   };
   return `${JSON.stringify(raw, null, 2)}\n`;
 }

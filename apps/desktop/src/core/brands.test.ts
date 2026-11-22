@@ -106,15 +106,18 @@ test("remove: the brand, its group slot, accounts, share records and open state 
       { share: "igdir/a/x" as ShareId, status: "skipped", at: 0 as never },
     ],
     sidebar: { ...base.sidebar, openBrands: [b("initech"), b("igdir")] },
+    lastPage: { kind: "brand", brand: b("initech"), page: "calendar" },
   };
   const before = structuredClone(s);
   const igdirGone = removeBrand(s, b("igdir"));
   assert.deepEqual(igdirGone.groups, [{ id: "musteri-a", name: "Müşteri A", open: true, brands: [] }]);
+  assert.deepEqual(igdirGone.lastPage, s.lastPage, "another brand's page stays the last page");
   const r = removeBrand(s, b("initech"));
   assert.deepEqual(r.brands.map((x) => x.id), ["igdir"]);
   assert.deepEqual(r.accounts.map((x) => x.id), ["i-x"]);
   assert.deepEqual(r.records.map((x) => x.share), ["initech-2/a/x", "igdir/a/x"]);
   assert.deepEqual(r.sidebar.openBrands, ["igdir"]);
+  assert.deepEqual(r.lastPage, { kind: "home" }, "the removed brand's page is no longer the last page");
   assert.equal(removeBrand(s, b("missing")), s);
   assert.deepEqual(s, before);
   assert.equal(parseStoreText(serializeStore(r)).kind, "ready");

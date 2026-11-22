@@ -54,7 +54,7 @@ test("first launch writes the trial record", async () => {
 });
 
 test("store with an unknown version: no file is written even when a trial record is asked for", async () => {
-  const s = stubPort('{"version": 4}');
+  const s = stubPort('{"version": 5}');
   const d = await loadDump(s.port, NOW, true);
   assert.equal(d.state, "newer-version");
   assert.equal(s.saved.length, 0);

@@ -1,5 +1,6 @@
 import { cleanName, sameName, slug, uniqueId } from "./names.ts";
 import type { BrandId } from "./shares.ts";
+import { HOME } from "./settings.ts";
 import { moveBrand } from "./sidebar.ts";
 import type { Brand, StoreFile } from "./store.ts";
 
@@ -76,5 +77,6 @@ export function removeBrand(s: StoreFile, id: BrandId): StoreFile {
     accounts: s.accounts.filter((a) => a.brand !== id),
     records: s.records.filter((r) => !r.share.startsWith(own)),
     sidebar: { ...s.sidebar, openBrands: s.sidebar.openBrands.filter((x) => x !== id) },
+    lastPage: "brand" in s.lastPage && s.lastPage.brand === id ? HOME : s.lastPage,
   };
 }
