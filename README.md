@@ -2,7 +2,7 @@
 
 English | [Türkçe](README.tr.md)
 
-A Windows desktop app for posting the same content to several social accounts by hand. You add a folder for each of your brands. Postbell reads the content packages in it and lists what each account should post today, with the file, the caption and the time. When a post's time comes, a Windows notification reminds you. A button opens the platform's share page, you post it yourself and mark it as shared.
+A Windows desktop app for posting the same content to several social accounts by hand. You add a folder for each of your brands. Postbell reads the content packages in it and lists what each account should post today, with the file, the caption and the time. When it is time to post, a Windows notification reminds you. A button opens the platform's share page. You make the post yourself and mark it as shared.
 
 It supports X, Instagram, TikTok, YouTube Shorts and Pinterest. Postbell is not affiliated with any of them.
 
@@ -14,7 +14,7 @@ Enes Kır designs Postbell and approves every change. The code is written with C
 
 ## Development
 
-You need Windows 10 or 11 with the WebView2 Runtime, Node.js 24, and Rust (stable, through rustup) with the Microsoft C++ Build Tools. Then, in `apps/desktop`:
+You need Windows 10 or 11 with the WebView2 Runtime, Node.js 24, stable Rust (through rustup) and the Microsoft C++ Build Tools. Then, in `apps/desktop`:
 
 ```sh
 npm ci
@@ -26,9 +26,9 @@ npx tauri build --no-bundle  # the release exe, in src-tauri/target/release
 
 The repository holds:
 
-- `apps/desktop`: the app. The Rust shell (Tauri 2) is in `src-tauri`, the logic is in `src/core` (TypeScript) and the React interface in `src/ui`.
+- `apps/desktop`: the app. The Rust shell (Tauri 2) is in `src-tauri`, the TypeScript logic in `src/core` and the React interface in `src/ui`.
 - `apps/site`: postbell.app, deployed from `main`.
-- `contracts`: the content package format (`manifest.schema.json`) and sample packages, which show what a package looks like.
+- `contracts`: the content package format (`manifest.schema.json`) and sample packages.
 
 ## License
 
