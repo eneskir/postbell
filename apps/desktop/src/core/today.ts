@@ -59,14 +59,14 @@ export function homeView(shares: readonly Share[], brands: readonly BrandState[]
   return { ...dayList(shares.filter((s) => known.has(s.brand)), today), problems };
 }
 
-export type RowTag = { readonly kind: "file-missing" } | { readonly kind: "late"; readonly lateBy: number } | { readonly kind: "due" } | { readonly kind: "skipped" };
+export type RowTag = { readonly kind: "file-missing" } | { readonly kind: "late"; readonly lateByMin: number } | { readonly kind: "due" } | { readonly kind: "skipped" };
 
 export function rowTagOf(s: Share): RowTag | null {
   const st = s.status;
   if (st.kind === "done") return null;
   if (st.kind === "skipped") return { kind: "skipped" };
   if (s.blockers.includes("file-missing")) return { kind: "file-missing" };
-  if (st.kind === "late") return { kind: "late", lateBy: st.lateBy };
+  if (st.kind === "late") return { kind: "late", lateByMin: st.lateByMin };
   if (st.kind === "due") return { kind: "due" };
   return null;
 }

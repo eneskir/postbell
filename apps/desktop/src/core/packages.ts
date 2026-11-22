@@ -1,6 +1,6 @@
 import { parseManifestText, type Content, type ManifestError } from "./manifest.ts";
 import type { PortErrorCode, PortResult } from "./port.ts";
-import { contentKeyOf, fileKeyOf, type BrandId, type ContentId } from "./shares.ts";
+import { contentKeyOf, fileKeyOf, type BrandId, type ContentId, type ContentKey, type FileKey } from "./shares.ts";
 
 // Paths use "/" and are relative to the brand folder (`dir`) and the package folder (`files`); sizes are bytes.
 export type PackageFile = { readonly path: string; readonly size: number };
@@ -14,11 +14,11 @@ export type PackageRejection =
 
 export type LoadedPackages = {
   readonly contents: readonly Content[];
-  // Both keyed by `fileKeyOf`: listed files not found in the folder, and byte sizes of those found.
-  readonly missingFiles: ReadonlySet<string>;
-  readonly sizes: ReadonlyMap<string, number>;
-  // Keyed by `contentKeyOf`: the package folder relative to the brand folder.
-  readonly dirs: ReadonlyMap<string, string>;
+  // Files the manifests list: those not in the folder, and the byte size of those found.
+  readonly missingFiles: ReadonlySet<FileKey>;
+  readonly sizes: ReadonlyMap<FileKey, number>;
+  // The package folder relative to the brand folder.
+  readonly dirs: ReadonlyMap<ContentKey, string>;
   readonly rejected: readonly { readonly brand: BrandId; readonly dir: string; readonly why: PackageRejection }[];
 };
 
@@ -35,9 +35,9 @@ export function folderStateOf(r: PortResult<readonly PackageDir[]>): FolderState
 
 export function loadPackages(scans: readonly { readonly brand: BrandId; readonly packages: readonly PackageDir[] }[]): LoadedPackages {
   const contents: Content[] = [];
-  const missingFiles = new Set<string>();
-  const sizes = new Map<string, number>();
-  const dirs = new Map<string, string>();
+  const missingFiles = new Set<FileKey>();
+  const sizes = new Map<FileKey, number>();
+  const dirs = new Map<ContentKey, string>();
   const rejected: LoadedPackages["rejected"][number][] = [];
   for (const { brand, packages } of scans) {
     const seen = new Set<string>();

@@ -14,7 +14,7 @@ export function alarmPlan(alarms: readonly Alarm[], shares: readonly Share[], br
     out.push({
       id: a.id,
       at: instant(a.at),
-      title: a.kind === "due" ? text.notify.due(handle, s.platform) : text.notify.late(a.lateBy, handle, s.platform),
+      title: a.kind === "due" ? text.notify.due(handle, s.platform) : text.notify.late(a.lateByMin, handle, s.platform),
       body: s.content.title,
       brand: brandName(a.brand),
       label: text.notify.format(s.platform),

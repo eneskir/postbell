@@ -22,7 +22,7 @@ export const setupTauriPort: SetupPort = {
   },
   install: (desktop) => call("setup_install", { desktop }),
   uninstall: (removeData) => call("setup_uninstall", { removeData }),
-  closeApp: () => call("setup_close_app"),
+  forceCloseApp: () => call("setup_close_app"),
   openApp: () => call("setup_open_app"),
   // Tauri's listen() resolves later; an unsubscribe that comes first runs once it does.
   onProgress(f) {

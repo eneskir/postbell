@@ -63,7 +63,7 @@ function statusTag(t: RowTag | null): ReactNode {
     case "file-missing":
       return <Tag tone="danger">{text.today.fileMissing}</Tag>;
     case "late":
-      return <Tag tone="danger">{text.delay(t.lateBy)}</Tag>;
+      return <Tag tone="danger">{text.delay(t.lateByMin)}</Tag>;
     case "due":
       return <Tag tone="warning">{text.today.due}</Tag>;
     case "skipped":

@@ -158,7 +158,7 @@ function headTag(s: Share): ReactNode {
   const st = s.status;
   switch (st.kind) {
     case "late":
-      return <Tag tone="danger">{text.share.late(st.lateBy)}</Tag>;
+      return <Tag tone="danger">{text.share.late(st.lateByMin)}</Tag>;
     case "due":
       return <Tag tone="warning">{text.today.due}</Tag>;
     case "done":

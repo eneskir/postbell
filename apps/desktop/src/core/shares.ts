@@ -9,9 +9,11 @@ export type ShareId = string & { readonly __brand: "ShareId" };
 
 export const shareIdOf = (brand: BrandId, content: ContentId, platform: Platform) => `${brand}/${content}/${platform}` as ShareId;
 
-export const contentKeyOf = (brand: BrandId, content: ContentId) => `${brand}/${content}`;
+export type ContentKey = string & { readonly __brand: "ContentKey" };
+export const contentKeyOf = (brand: BrandId, content: ContentId) => `${brand}/${content}` as ContentKey;
 
-export const fileKeyOf = (brand: BrandId, content: ContentId, path: string) => `${brand}/${content}/${path}`;
+export type FileKey = string & { readonly __brand: "FileKey" };
+export const fileKeyOf = (brand: BrandId, content: ContentId, path: string) => `${brand}/${content}/${path}` as FileKey;
 
 // A package `platform` is a format of a network; Threads has none because the content pipeline makes no Threads packages.
 export type Network = "x" | "instagram" | "threads" | "tiktok" | "youtube" | "pinterest";
@@ -55,7 +57,7 @@ export type PlannedAt = { readonly kind: "at"; readonly at: LocalMs } | { readon
 export type ShareStatus =
   | { readonly kind: "upcoming" }
   | { readonly kind: "due" }
-  | { readonly kind: "late"; readonly lateBy: number } // minutes after the planned time
+  | { readonly kind: "late"; readonly lateByMin: number }
   | { readonly kind: "done"; readonly at: LocalMs }
   | { readonly kind: "skipped"; readonly at: LocalMs };
 
@@ -81,8 +83,7 @@ export type DeriveInput = {
   readonly contents: readonly Content[];
   readonly accounts: readonly Account[];
   readonly records: readonly ShareRecord[];
-  // Files not found in the folder, keyed by `fileKeyOf`.
-  readonly missingFiles: ReadonlySet<string>;
+  readonly missingFiles: ReadonlySet<FileKey>;
   readonly now: LocalMs;
 };
 
@@ -90,8 +91,8 @@ export function statusOf(planned: PlannedAt, record: ShareRecord | undefined, no
   if (record) return { kind: record.status, at: record.at };
   if (planned.kind === "unscheduled") return { kind: "upcoming" };
   if (now < planned.at) return { kind: "upcoming" };
-  const lateBy = Math.floor((now - planned.at) / MINUTE);
-  return lateBy < LATE_AFTER_MIN ? { kind: "due" } : { kind: "late", lateBy };
+  const lateByMin = Math.floor((now - planned.at) / MINUTE);
+  return lateByMin < LATE_AFTER_MIN ? { kind: "due" } : { kind: "late", lateByMin };
 }
 
 export function deriveShares(input: DeriveInput): Share[] {

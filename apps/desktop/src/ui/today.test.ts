@@ -36,7 +36,7 @@ const PLATFORM_NAME: Record<string, string> = { x: "X", "instagram-reels": "Inst
 
 function row(s: Share): string {
   const time = s.status.kind === "done" || s.status.kind === "skipped" ? timeOf(s.status.at) : s.plannedAt.kind === "at" ? timeOf(s.plannedAt.at) : null;
-  const tag = s.status.kind === "late" ? text.delay(s.status.lateBy) : s.status.kind === "due" ? text.today.due : s.status.kind === "done" ? text.today.undo : "";
+  const tag = s.status.kind === "late" ? text.delay(s.status.lateByMin) : s.status.kind === "due" ? text.today.due : s.status.kind === "done" ? text.today.undo : "";
   return [time === null ? "--:--" : formatTime(time), PLATFORM_NAME[s.platform], s.content.title, tag].join(" | ");
 }
 
@@ -101,7 +101,7 @@ test("panel eyebrow: account, format and time; shares without a time or an accou
   const late = all.find((s) => s.id === shareIdOf(brand, "dog" as ContentId, "x"));
   assert.ok(late && late.status.kind === "late");
   assert.equal(text.share.eyebrow(late), "@initech · X · 09:00");
-  assert.equal(text.share.late(late.status.lateBy), "5 sa 20 dk gecikti");
+  assert.equal(text.share.late(late.status.lateByMin), "5 sa 20 dk gecikti");
   const other = accounts.filter((a) => a.network !== "x").map((a) => (a.network === "pinterest" ? { ...a, times: {} } : a));
   const some = deriveShares({ contents, accounts: other, records: [], missingFiles: new Set(), now });
   const storm = some.find((s) => s.platform === "pinterest");

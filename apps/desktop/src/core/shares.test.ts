@@ -16,6 +16,7 @@ import {
   type BrandId,
   type ContentId,
   type DeriveInput,
+  type FileKey,
   type Network,
   type ShareRecord,
 } from "./shares.ts";
@@ -70,8 +71,8 @@ test("status: upcoming before the time, due on the minute, late at the threshold
   const justBefore = (NOW("2026-11-11", "09:00") + LATE_AFTER_MIN * 60_000 - 1) as LocalMs;
   assert.equal(only(input({ now: justBefore })).status.kind, "due");
   assert.equal(LATE_AFTER_MIN, 30, "late threshold is 30 minutes");
-  assert.deepEqual(only(input({ now: NOW("2026-11-11", "09:30") })).status, { kind: "late", lateBy: 30 });
-  assert.deepEqual(only(input({ now: NOW("2026-11-11", "14:20") })).status, { kind: "late", lateBy: 320 });
+  assert.deepEqual(only(input({ now: NOW("2026-11-11", "09:30") })).status, { kind: "late", lateByMin: 30 });
+  assert.deepEqual(only(input({ now: NOW("2026-11-11", "14:20") })).status, { kind: "late", lateByMin: 320 });
 });
 
 test("marked gives done, skipped gives skipped; undo (record removed) derives from the time again", () => {
@@ -138,7 +139,7 @@ test("the same content id in two brands: separate shares, one brand's record doe
 });
 
 test("blockers: file-missing when the file is not in the folder, account-missing and no time without an account", () => {
-  const s = only(input({ missingFiles: new Set(["initech/c1/main.png"]), accounts: [] }));
+  const s = only(input({ missingFiles: new Set(["initech/c1/main.png" as FileKey]), accounts: [] }));
   assert.deepEqual(s.blockers, ["file-missing", "account-missing"]);
   assert.equal(s.account, null);
   assert.deepEqual(s.plannedAt, { kind: "unscheduled", date: "2026-11-11" }, "the time belongs to the account; no account, no time");

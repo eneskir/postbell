@@ -1,3 +1,4 @@
+import type { ReadyPort } from "./port.ts";
 
 // Mirrors Rust `Installed` (test `installed_serializes_to_contract`). An installed exe with an unreadable version arrives as `older`, maybe with an empty version.
 export type Installed =
@@ -14,17 +15,14 @@ export type SetupResult = { readonly ok: true } | { readonly ok: false; readonly
 
 export type Progress = { readonly done: number; readonly total: number };
 
-export interface SetupPort {
+export interface SetupPort extends ReadyPort {
   state(): Promise<SetupInfo | null>;
   install(desktop: boolean): Promise<SetupResult>;
   uninstall(removeData: boolean): Promise<SetupResult>;
-  // Kills the running Postbell.
-  closeApp(): Promise<SetupResult>;
+  forceCloseApp(): Promise<SetupResult>;
   // Opens the installed Postbell; on success the setup window closes.
   openApp(): Promise<SetupResult>;
   onProgress(f: (p: Progress) => void): () => void;
-  // The first frame is drawn; the shell shows the window (`rendered` is recorded in self-test mode).
-  ready(rendered: string): Promise<void>;
   close(): Promise<void>;
 }
 

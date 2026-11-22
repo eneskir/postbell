@@ -4,10 +4,14 @@ import type { PackageDir } from "./packages.ts";
 import type { BrandId, ShareId } from "./shares.ts";
 import type { StoreFile } from "./store.ts";
 
-export interface Port {
-  appInfo(): Promise<ParseResult<AppInfo>>;
+// The app and the setup windows share it.
+export interface ReadyPort {
   // The first frame is drawn; the shell shows the window. `rendered` is recorded only in self-test mode.
   ready(rendered: string): Promise<void>;
+}
+
+export interface Port extends ReadyPort {
+  appInfo(): Promise<ParseResult<AppInfo>>;
   // Self-test mode (real shell only): the UI adds a test record and the shell keeps the window hidden.
   selfTest(): Promise<{ readonly active: boolean; readonly addRecord: boolean }>;
   readonly packages: {

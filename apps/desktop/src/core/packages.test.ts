@@ -14,10 +14,11 @@ const manifest = (id: string, brand = "initech") =>
     sources: [{ title: "source", url: "https://example.com", license: "CC0-1.0" }],
     aiUsage: { voice: false, visuals: true, text: false },
   });
+const fakeSize = (path: string) => path.length;
 const pkg = (dir: string, text: string | null, files = ["main.mp4", "images/card.png", "manifest.json"]): PackageDir => ({
   dir,
   manifest: text,
-  files: files.map((path) => ({ path, size: path.length })),
+  files: files.map((path) => ({ path, size: fakeSize(path) })),
 });
 const B = "initech" as BrandId;
 

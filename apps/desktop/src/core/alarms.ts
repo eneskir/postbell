@@ -19,7 +19,7 @@ export type Alarm = {
   readonly kind: AlarmKind;
   readonly share: ShareId;
   readonly brand: BrandId;
-  readonly lateBy: number; // minutes after the planned time
+  readonly lateByMin: number;
 };
 
 // Past alarms stay in the list (the shell skips them); `brands` sets the order and drops brands not in it.
@@ -34,9 +34,9 @@ export function alarmsOf(shares: readonly Share[], brands: readonly BrandId[], s
     if (k === "done" || k === "skipped") continue;
     const at = s.plannedAt.at;
     const format = FORMATS.indexOf(s.platform);
-    out.push({ alarm: { id: `${s.id}#due`, at, kind: "due", share: s.id, brand: s.brand, lateBy: 0 }, brand, format });
+    out.push({ alarm: { id: `${s.id}#due`, at, kind: "due", share: s.id, brand: s.brand, lateByMin: 0 }, brand, format });
     const later = (at + settings.remindAfter * MINUTE) as LocalMs;
-    const reminder: Alarm = { id: `${s.id}#reminder`, at: later, kind: "reminder", share: s.id, brand: s.brand, lateBy: settings.remindAfter };
+    const reminder: Alarm = { id: `${s.id}#reminder`, at: later, kind: "reminder", share: s.id, brand: s.brand, lateByMin: settings.remindAfter };
     out.push({ alarm: reminder, brand, format });
   }
   out.sort((a, b) => a.alarm.at - b.alarm.at || a.brand - b.brand || a.format - b.format || (a.alarm.id < b.alarm.id ? -1 : a.alarm.id > b.alarm.id ? 1 : 0));
