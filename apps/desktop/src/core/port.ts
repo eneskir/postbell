@@ -23,7 +23,8 @@ export interface Port extends ReadyPort {
     url(folder: string, path: string): string;
     // Opens Explorer with the file selected; a missing file gives `file-missing`, a path outside the folder is refused.
     reveal(folder: string, path: string): Promise<PortResult<void>>;
-    // Copies a file picked in the Windows file dialog into the package folder under its manifest name; the source path never reaches the UI. A different extension gives `file-type`; an existing file is never overwritten.
+    // Copies a file picked in the Windows file dialog into the package under its manifest name, never overwriting.
+    // The picked path never reaches the UI; another extension gives `file-type`.
     restore(folder: string, path: string): Promise<PortResult<RestoreResult>>;
   };
   // Opens the platform's share page in the default browser (URLs in `src-tauri/src/open.rs`); only X takes the text. `text-dropped`: the text did not fit the URL.
@@ -40,7 +41,7 @@ export interface Port extends ReadyPort {
     toggleMaximize(): Promise<void>;
     close(): Promise<void>;
   };
-  // The whole list is sent on every change. A notification click focuses the window and reports its target (null: grouped notification, Home). `onOpen` returns an unsubscribe function.
+  // `set` takes the whole list on every change. A notification click focuses the window and reports its target, null for a grouped one (Home).
   readonly alarms: {
     set(plan: AlarmPlan): Promise<PortResult<void>>;
     onOpen(open: (target: AlarmTarget | null) => void): () => void;

@@ -1,4 +1,5 @@
-// Instants are local wall-clock milliseconds: 2026-11-11 14:20 local is Date.UTC(2026, 10, 11, 14, 20). The shell converts real time; this assumes no daylight saving time (Turkey).
+// Local wall-clock milliseconds: 2026-11-11 14:20 local is Date.UTC(2026, 10, 11, 14, 20).
+// The shell converts real time; this assumes no daylight saving time (Turkey).
 export type LocalMs = number & { readonly __brand: "LocalMs" };
 // Minute of the day, 0-1439.
 export type TimeOfDay = number & { readonly __brand: "TimeOfDay" };

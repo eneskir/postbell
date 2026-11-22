@@ -71,7 +71,8 @@ export function moveBrand(s: StoreFile, brand: BrandId, to: { readonly group: st
   return { ...next, brands: [...rest.slice(0, at), moving, ...rest.slice(at)] };
 }
 
-// `boundary` counts gaps with the dragged item still listed (0 before the first, n after the last); `from` is its index there, or null. Returns the index in the list without the item, or null for no move.
+// `boundary` is a gap in the list that still holds the dragged item (0 before the first, n after the last); `from` is its index there, or null.
+// Returns the index in the list without the item, or null for no move.
 export function dropIndex(from: number | null, boundary: number): number | null {
   if (from === null) return boundary;
   if (boundary === from || boundary === from + 1) return null;
