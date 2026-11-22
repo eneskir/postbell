@@ -1,4 +1,5 @@
 import { parseAppInfo } from "../../core/app-info.ts";
+import { passphraseLongEnough } from "../../core/backup.ts";
 import type { Language } from "../../core/manifest.ts";
 import type { PackageDir } from "../../core/packages.ts";
 import { parseAlarmTarget, type AlarmPlan, type Port, type TrayTexts } from "../../core/port.ts";
@@ -70,6 +71,13 @@ const vault = new Map<string, { readonly password: string | null; readonly codes
     { password: FAKE_PASSWORD, codes: id === "initech-instagram" ? ["1111 2222", "3333 4444", "5555 6666", "7777 8888", "9999 0000", "1212 3434", "5656 7878", "9090 1212"] : [] },
   ]),
 );
+// The fake backup file: what `backup.save` wrote last, or one made from the starting entries.
+type FakeEntry = { readonly password: string | null; readonly codes: readonly string[] };
+const FAKE_PASSPHRASE = "ornek-parola-uzun";
+let backupFile = { passphrase: FAKE_PASSPHRASE, entries: new Map<string, FakeEntry>(vault) };
+let backupPicked = false;
+// `?backup=cancel`: every backup dialog is cancelled; `?backup=write`: saving fails.
+const backupScenario = () => new URLSearchParams(location.search).get("backup");
 // `?vault=error`: the Credential Manager cannot be opened.
 const vaultDown = (): { ok: false; error: { code: "vault-unavailable"; detail: string } } | null =>
   new URLSearchParams(location.search).get("vault") === "error" ? { ok: false, error: { code: "vault-unavailable", detail: "fake shell: ?vault=error" } } : null;
@@ -185,6 +193,38 @@ export const fakePort: Port = {
       if (down) return down;
       vault.delete(account);
       return { ok: true, value: undefined };
+    },
+  },
+  backup: {
+    async save(accounts, passphrase) {
+      if (!passphraseLongEnough(passphrase)) return { ok: false, error: { code: "backup-passphrase-short", detail: "fake shell" } };
+      const down = vaultDown();
+      if (down) return down;
+      if (backupScenario() === "cancel") return { ok: true, value: null };
+      const entries = new Map(accounts.flatMap((a) => (vault.has(a.id) ? [[a.id, vault.get(a.id)!] as const] : [])));
+      if (entries.size === 0) return { ok: false, error: { code: "backup-empty", detail: "fake shell" } };
+      if (backupScenario() === "write") return { ok: false, error: { code: "backup-write", detail: "fake shell: ?backup=write" } };
+      backupFile = { passphrase, entries };
+      return { ok: true, value: { count: entries.size, created: Date.now() } };
+    },
+    async pick() {
+      backupPicked = backupScenario() !== "cancel";
+      return { ok: true, value: backupPicked ? "Postbell yedeği 2026-11-12.age" : null };
+    },
+    async restore(passphrase, accounts) {
+      if (!backupPicked) return { ok: false, error: { code: "backup-not-picked", detail: "fake shell" } };
+      if (passphrase !== backupFile.passphrase) return { ok: false, error: { code: "backup-unreadable", detail: "fake shell" } };
+      const down = vaultDown();
+      if (down) return down;
+      const done = { changed: 0, added: 0, skipped: 0 };
+      for (const [id, entry] of backupFile.entries) {
+        if (!accounts.includes(id as AccountId)) done.skipped += 1;
+        else {
+          done[vault.has(id) ? "changed" : "added"] += 1;
+          vault.set(id, entry);
+        }
+      }
+      return { ok: true, value: done };
     },
   },
   store: {
