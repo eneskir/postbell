@@ -54,6 +54,8 @@ const check = (cond, what) => {
 const records = () => JSON.parse(readFileSync(storePath, "utf8")).records;
 const digest = () => createHash("sha256").update(readFileSync(storePath)).digest("hex").slice(0, 16);
 
+const CLOCK = `(() => { const R = Date; const off = new R(2026, 10, 13, 14, 20).getTime() - R.now(); class D extends R { constructor(...a) { if (a.length === 0) super(R.now() + off); else super(...a); } static now() { return R.now() + off; } } globalThis.Date = D; })();`;
+
 async function launch(port, report) {
   const p = spawn(EXE, ["--self-test", report, "--self-test-stay", "--data-dir", data], {
     env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` },
@@ -65,7 +67,7 @@ async function launch(port, report) {
     kill();
     throw new Error("the debugging port did not open (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS did not take)");
   }
-  const { ws, ev } = await connect(page);
+  const { ws, send, ev } = await connect(page);
   const waitFor = async (expr, what, ms = 10000) => {
     for (let t = 0; t < ms; t += 100) {
       if (await ev(expr)) return;
@@ -73,6 +75,12 @@ async function launch(port, report) {
     }
     throw new Error(`timed out: ${what}`);
   };
+  // The fixtures are dated 12-16 November 2026: the page's clock is set to 13 November 14:20 and the page reloaded, so the run does not depend on the real date: yesterday's X is late and gets marked, today's X is skipped and stays in Bitenler.
+  await send("Page.enable");
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: CLOCK });
+  await send("Page.reload", { ignoreCache: true });
+  await sleep(500);
+  await waitFor(`new Date().getDate() === 13 && new Date().getMonth() === 10`, "the fixed clock");
   say(`  process ${p.pid}`);
   return {
     ev,
@@ -109,7 +117,7 @@ try {
   const a = await launch(9341, join(base, "r1.json"));
   await openToday(a);
   say(`  Today: ${JSON.stringify(await a.ev("__rows()"))}`);
-  check(await a.ev(`!!${xRow(1)}`), "at least two X rows in Today (fixtures are 12-14 November, today is 12 November or later)");
+  check(await a.ev(`!!${xRow(1)}`), "at least two X rows in Today (late 12 November and 13 November)");
   await a.ev(`${xRow(0)}.click()`);
   await sleep(300);
   check(await a.ev(`!!document.querySelector("aside.panel")`), "clicking a row opens the panel");
