@@ -5,6 +5,7 @@ import "./styles.css";
 import "./shell.css";
 import "./components.css";
 import "./today.css";
+import "./contents.css";
 import "./share-panel.css";
 import "./accounts.css";
 import { StrictMode, type ReactNode } from "react";
