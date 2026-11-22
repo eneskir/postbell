@@ -71,6 +71,7 @@
 }
 
 .account-email,
+.account-password,
 .account-two-step {
   flex: none;
   overflow: hidden;
@@ -82,6 +83,10 @@
 
 .account-email {
   width: var(--size-cell-email);
+}
+
+.account-password {
+  width: var(--size-cell-password);
 }
 
 .account-two-step {
@@ -181,6 +186,12 @@
 
 .field-block {
   width: 100%;
+}
+
+.field-area {
+  height: var(--size-field-area);
+  padding-block: var(--space-xs);
+  resize: none;
 }
 
 .field-select {

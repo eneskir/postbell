@@ -1,8 +1,9 @@
 import type { AppInfo, ParseResult } from "./app-info.ts";
 import type { Platform } from "./manifest.ts";
 import type { PackageDir } from "./packages.ts";
-import type { BrandId, ShareId } from "./shares.ts";
+import type { AccountId, BrandId, ShareId } from "./shares.ts";
 import type { StoreFile } from "./store.ts";
+import type { VaultChange, VaultStatus } from "./vault.ts";
 
 // The app and the setup windows share it.
 export interface ReadyPort {
@@ -49,6 +50,17 @@ export interface Port extends ReadyPort {
   // The first call creates the tray icon, later calls update its texts. While it exists, closing hides the window and the app keeps running (`src-tauri/src/tray.rs`).
   readonly tray: {
     set(texts: TrayTexts): Promise<PortResult<void>>;
+  };
+  // Passwords and backup codes in the Windows Credential Manager, one entry per account (`src-tauri/src/vault.rs`).
+  // The UI never gets a backup code, and gets a password only from `password`; `copy` keeps it in the shell.
+  readonly vault: {
+    status(accounts: readonly AccountId[]): Promise<PortResult<readonly VaultStatus[]>>;
+    write(account: AccountId, change: VaultChange): Promise<PortResult<void>>;
+    password(account: AccountId): Promise<PortResult<string>>;
+    // The clipboard copy is left out of Windows' clipboard history and cleared after 30 seconds if still there.
+    copy(account: AccountId): Promise<PortResult<void>>;
+    // An account without an entry is not an error.
+    remove(account: AccountId): Promise<PortResult<void>>;
   };
   readonly store: {
     // The file path and raw text; `text` is null when the file does not exist.
@@ -109,13 +121,17 @@ export type PortErrorCode =
   | "file-type"
   | "file-write"
   | "open-failed"
+  | "vault-unavailable"
+  | "vault-too-large"
+  | "vault-not-found"
+  | "clipboard-failed"
   | "shell-unavailable";
 
 export type PortError = { readonly code: PortErrorCode; readonly detail: string };
 
 export type PortResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: PortError };
 
-const CODES: readonly PortErrorCode[] = ["store-read", "store-write", "store-newer-version", "store-backup", "folder-not-registered", "folder-missing", "folder-read", "dialog-failed", "file-missing", "file-type", "file-write", "open-failed", "shell-unavailable"];
+const CODES: readonly PortErrorCode[] = ["store-read", "store-write", "store-newer-version", "store-backup", "folder-not-registered", "folder-missing", "folder-read", "dialog-failed", "file-missing", "file-type", "file-write", "open-failed", "vault-unavailable", "vault-too-large", "vault-not-found", "clipboard-failed", "shell-unavailable"];
 
 export function parsePortError(raw: unknown): PortError {
   const r = (typeof raw === "object" && raw !== null ? raw : {}) as { code?: unknown; detail?: unknown };

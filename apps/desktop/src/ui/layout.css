@@ -17,6 +17,8 @@
   --size-cell-network: 128px;
   --size-cell-email: 152px;
   --size-cell-two-step: 72px;
+  --size-cell-password: 88px;
+  --size-field-area: 72px;
   --size-detail-label: 68px;
   --size-cell-add: 88px;
   --size-cell-count: 120px;

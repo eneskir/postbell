@@ -25,6 +25,13 @@ function stubPort(text: string | null, packages: Record<string, PackageDir[]> = 
     window: { minimize: async () => {}, toggleMaximize: async () => {}, close: async () => {} },
     alarms: { set: async () => ({ ok: true, value: undefined }), onOpen: () => () => {} },
     tray: { set: async () => ({ ok: true, value: undefined }) },
+    vault: {
+      status: async () => ({ ok: true, value: [] }),
+      write: async () => ({ ok: true, value: undefined }),
+      password: async () => ({ ok: false, error: { code: "vault-not-found", detail: "" } }),
+      copy: async () => ({ ok: true, value: undefined }),
+      remove: async () => ({ ok: true, value: undefined }),
+    },
     store: {
       load: async () => ({ ok: true, value: { path: "C:/data/store.json", text } }),
       save: async (s) => (saved.push(s), { ok: true, value: undefined }),

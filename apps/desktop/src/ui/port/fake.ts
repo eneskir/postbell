@@ -62,6 +62,18 @@ let store: StoreFile = {
   ],
 };
 
+// Made-up passwords only; every fake account except Instagram (Türkçe) has one, and Instagram has 8 backup codes.
+const FAKE_PASSWORD = "ornek-sifre-123";
+const vault = new Map<string, { readonly password: string | null; readonly codes: readonly string[] }>(
+  ["initech-x", "initech-instagram", "initech-tiktok", "initech-youtube", "initech-pinterest"].map((id) => [
+    id,
+    { password: FAKE_PASSWORD, codes: id === "initech-instagram" ? ["1111 2222", "3333 4444", "5555 6666", "7777 8888", "9999 0000", "1212 3434", "5656 7878", "9090 1212"] : [] },
+  ]),
+);
+// `?vault=error`: the Credential Manager cannot be opened.
+const vaultDown = (): { ok: false; error: { code: "vault-unavailable"; detail: string } } | null =>
+  new URLSearchParams(location.search).get("vault") === "error" ? { ok: false, error: { code: "vault-unavailable", detail: "fake shell: ?vault=error" } } : null;
+
 export const fakePort: Port = {
   async appInfo() {
     return parseAppInfo({ name: "Postbell", version: "0.0.0-fake" });
@@ -145,6 +157,33 @@ export const fakePort: Port = {
   tray: {
     async set(texts) {
       (window as { postbellTray?: TrayTexts }).postbellTray = texts;
+      return { ok: true, value: undefined };
+    },
+  },
+  vault: {
+    async status(accounts) {
+      return vaultDown() ?? { ok: true, value: accounts.map((account) => ({ account, password: (vault.get(account)?.password ?? null) !== null, codes: vault.get(account)?.codes.length ?? 0 })) };
+    },
+    async write(account, { password, codes, replace }) {
+      const down = vaultDown();
+      if (down) return down;
+      const old = replace ? { password: null, codes: [] } : (vault.get(account) ?? { password: null, codes: [] });
+      const next = { password: password === null ? old.password : password || null, codes: codes ?? old.codes };
+      if (next.password === null && next.codes.length === 0) vault.delete(account);
+      else vault.set(account, next);
+      return { ok: true, value: undefined };
+    },
+    async password(account) {
+      const p = vault.get(account)?.password;
+      return vaultDown() ?? (p ? { ok: true, value: p } : { ok: false, error: { code: "vault-not-found", detail: account } });
+    },
+    async copy(account) {
+      return vaultDown() ?? (vault.get(account)?.password ? { ok: true, value: undefined } : { ok: false, error: { code: "vault-not-found", detail: account } });
+    },
+    async remove(account) {
+      const down = vaultDown();
+      if (down) return down;
+      vault.delete(account);
       return { ok: true, value: undefined };
     },
   },
