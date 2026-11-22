@@ -44,7 +44,7 @@ export function HistoryPage({ records, shares, today, brandOf, undo }: Props) {
   useEffect(() => () => window.clearTimeout(tipTimer.current), []);
   const undoAndFocus = (id: ShareId) => {
     const i = rows.findIndex((r) => r.share === id);
-    const next = rows.slice(i + 1).find((r) => r.title !== null) ?? rows.slice(0, i).reverse().find((r) => r.title !== null);
+    const next = rows.slice(i + 1).find((r) => !r.gone) ?? rows.slice(0, i).reverse().find((r) => !r.gone);
     focusAfter.current = next?.share ?? null;
     setTip(null);
     undo(id);
@@ -143,7 +143,7 @@ export function HistoryPage({ records, shares, today, brandOf, undo }: Props) {
 function Row({ row: r, brand, undo }: { row: HistoryRow; brand: BrandLabel; undo: (id: ShareId) => void }) {
   const format = r.platform === null ? (r.share.split("/").at(-1) ?? "") : text.formats[r.platform];
   const marked = text.history.marked(r.status, r.markedAt);
-  const note = r.title === null ? `${marked}. ${text.history.gone}` : marked;
+  const note = r.gone ? `${marked}. ${text.history.gone}` : marked;
   return (
     <li className="share-row share-row-finished" data-tip={note}>
       <div className="share-row-main">
@@ -160,7 +160,7 @@ function Row({ row: r, brand, undo }: { row: HistoryRow; brand: BrandLabel; undo
         type="button"
         className="share-undo"
         data-undo={r.share}
-        disabled={r.title === null}
+        disabled={r.gone}
         aria-label={text.today.undoLabel(r.title ?? r.content, format)}
         aria-description={note}
         onClick={() => undo(r.share)}

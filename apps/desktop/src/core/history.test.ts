@@ -72,7 +72,7 @@ test("a record whose package is gone keeps its row under the day it was marked, 
   const v = view(records, "all", contents.filter((c) => c.id !== "yesterday"));
   const gone = v.days.flatMap((d) => d.rows).filter((r) => r.content === "yesterday");
   assert.equal(gone.length, 3);
-  assert.ok(gone.every((r) => r.title === null && r.time === null));
+  assert.ok(gone.every((r) => r.gone && r.title === null && r.time === null));
   assert.deepEqual(
     gone.map((r) => [r.day, r.platform, r.status]),
     [
@@ -82,6 +82,28 @@ test("a record whose package is gone keeps its row under the day it was marked, 
     ],
   );
   assert.notEqual(v.days.flatMap((d) => d.rows).find((r) => r.content === "today")!.title, null);
+});
+
+test("a gone package's record written since store version 2 keeps its title, planned day and time", () => {
+  const planned = { kind: "at", at: at(D("2026-11-10"), T("18:30")) } as const;
+  const stored = { ...rec(id("yesterday", "tiktok"), "done", "2026-11-11T09:00"), title: "Dün", planned };
+  const unscheduled = { ...rec(id("yesterday", "x"), "skipped", "2026-11-11T09:00"), title: "Dün", planned: { kind: "unscheduled", date: D("2026-11-09") } } as const;
+  const rows = view([stored, unscheduled], "all", []).days.flatMap((d) => d.rows);
+  assert.deepEqual(
+    rows.map((r) => [r.gone, r.title, r.day, r.time]),
+    [
+      [true, "Dün", "2026-11-10", T("18:30")],
+      [true, "Dün", "2026-11-09", null],
+    ],
+  );
+});
+
+test("a present package wins over its record's copy, which may be older", () => {
+  const old = { ...rec(id("today", "x"), "done", "2026-11-12T09:00"), title: "Old title", planned: { kind: "unscheduled", date: D("2026-11-01") } } as const;
+  const row = view([old]).days.flatMap((d) => d.rows)[0]!;
+  assert.equal(row.gone, false);
+  assert.notEqual(row.title, "Old title");
+  assert.equal(row.day, "2026-11-12");
 });
 
 test("an unknown platform in a hand-edited record still shows, after the known formats", () => {

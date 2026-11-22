@@ -1,5 +1,5 @@
 import type { Platform } from "./manifest.ts";
-import { FORMATS, plannedDate, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "./shares.ts";
+import { FORMATS, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "./shares.ts";
 import { dateOf, timeOf, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 
 export type HistoryFilter = "all" | "done" | "skipped";
@@ -11,11 +11,13 @@ export type HistoryRow = {
   readonly content: ContentId;
   // An unknown platform only comes from a hand-edited store file; the row still shows.
   readonly platform: Platform | null;
-  // Null when the content's package is no longer in the brand folder: the row shows the content id and cannot be undone.
+  // True when the content's package is no longer in the brand folder: the row cannot be undone.
+  readonly gone: boolean;
+  // A gone package's title comes from its record; null for records written before store version 2 (the row shows the content id).
   readonly title: string | null;
   readonly status: ShareRecord["status"];
   readonly markedAt: LocalMs;
-  // The planned day and time; a record without its package falls back to the day it was marked, with no time.
+  // The planned day and time; a gone package's come from its record, else the day it was marked, with no time.
   readonly day: LocalDate;
   readonly time: TimeOfDay | null;
 };
@@ -33,8 +35,10 @@ function rowOf(r: ShareRecord, share: Share | undefined): HistoryRow {
   const [brand = "", content = "", platform = ""] = r.share.split("/");
   const known = FORMATS.includes(platform as Platform) ? (platform as Platform) : null;
   const base = { share: r.share, brand: brand as BrandId, content: content as ContentId, platform: known, status: r.status, markedAt: r.at };
-  if (!share) return { ...base, title: null, day: dateOf(r.at), time: null };
-  return { ...base, title: share.content.title, day: plannedDate(share), time: share.plannedAt.kind === "at" ? timeOf(share.plannedAt.at) : null };
+  const planned = share?.plannedAt ?? r.planned;
+  const day = planned === undefined ? dateOf(r.at) : planned.kind === "at" ? dateOf(planned.at) : planned.date;
+  const time = planned?.kind === "at" ? timeOf(planned.at) : null;
+  return { ...base, gone: !share, title: share?.content.title ?? r.title ?? null, day, time };
 }
 
 const order = (p: Platform | null) => (p === null ? FORMATS.length : FORMATS.indexOf(p));

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { AccountId, BrandId, ShareId } from "./shares.ts";
+import type { Account, AccountId, BrandId, ShareId, ShareRecord } from "./shares.ts";
 import { canWrite, emptyStore, parseStoreText, serializeStore, withoutRecord, withRecord, type StoreFile } from "./store.ts";
 import { at, parseDate, parseTime, type LocalDate, type TimeOfDay } from "./time.ts";
 
@@ -26,7 +26,7 @@ const full: StoreFile = withRecord(
 );
 
 const FILE = `{
-  "version": 1,
+  "version": 2,
   "brands": [
     {
       "id": "initech",
@@ -128,12 +128,12 @@ test("a broken file is unreadable and not writable", () => {
 });
 
 test("an unknown (newer) version is newer-version whatever its shape, and not writable", () => {
-  for (const text of ['{"version": 2}', '{"version": 7, "brands": "new shape"}']) {
+  for (const text of ['{"version": 3}', '{"version": 7, "brands": "new shape"}']) {
     const s = parseStoreText(text);
     assert.equal(s.kind, "newer-version");
     assert.equal(canWrite(s), false);
   }
-  assert.deepEqual(parseStoreText(FILE.replace('"version": 1', '"version": 0')), { kind: "unreadable", reason: "invalid-shape", path: "version", rule: "const" });
+  assert.deepEqual(parseStoreText(FILE.replace('"version": 2', '"version": 0')), { kind: "unreadable", reason: "invalid-shape", path: "version", rule: "const" });
 });
 
 test("one record per share: marking again replaces the old one", () => {
@@ -155,4 +155,41 @@ test("undo removes the record; without a record the same object returns (no writ
   assert.equal(undone.records.some((r) => r.share === id), false);
   assert.equal(undone.records.length, marked.records.length - 1);
   assert.equal(withoutRecord(undone, id), undone);
+});
+
+test("a version 1 file reads as version 2 with no details, and is written back as version 2", () => {
+  const v1 = FILE.replace('"version": 2', '"version": 1');
+  assert.deepEqual(parseStoreText(v1), { kind: "ready", store: full });
+  assert.equal(serializeStore(full), FILE);
+});
+
+const detailed: Account = {
+  ...full.accounts[0]!,
+  email: "name@example.com",
+  twoStep: "app",
+  recoveryEmail: "recovery@example.com",
+  note: "Creator account; Threads uses it",
+};
+const titled: ShareRecord = { share: "initech/hidden-dog/x" as ShareId, status: "done", at: NOW, title: "Hidden dog", planned: { kind: "at", at: NOW } };
+const unscheduled: ShareRecord = { share: "initech/hidden-dog/tiktok" as ShareId, status: "skipped", at: NOW, title: "Hidden dog", planned: { kind: "unscheduled", date: parseDate("2026-11-10") as LocalDate } };
+
+test("version 2: account details and the record's title and planned time are stored and read back the same", () => {
+  const s: StoreFile = { ...full, accounts: [detailed], records: [titled, unscheduled] };
+  const text = serializeStore(s);
+  assert.match(text, /"twoStep": "app"/);
+  assert.match(text, /"planned": "2026-11-11T14:20"/);
+  assert.match(text, /"planned": "2026-11-10"/);
+  assert.deepEqual(parseStoreText(text), { kind: "ready", store: s });
+});
+
+test("version 2 fields are refused in a version 1 file, and checked in a version 2 file", () => {
+  const text = serializeStore({ ...full, accounts: [detailed], records: [titled] });
+  const cases: Array<[string, unknown]> = [
+    [text.replace('"version": 2', '"version": 1'), { kind: "unreadable", reason: "invalid-shape", path: "accounts[0].email", rule: "additionalProperties" }],
+    [text.replace('"twoStep": "app"', '"twoStep": "pigeon"'), { kind: "unreadable", reason: "invalid-shape", path: "accounts[0].twoStep", rule: "enum" }],
+    [text.replace('"note": "Creator account; Threads uses it"', '"note": ""'), { kind: "unreadable", reason: "invalid-shape", path: "accounts[0].note", rule: "minLength" }],
+    [text.replace('"planned": "2026-11-11T14:20"', '"planned": "2026-02-30T14:20"'), { kind: "unreadable", reason: "invalid-shape", path: "records[0].planned", rule: "calendar" }],
+    [text.replace('"planned": "2026-11-11T14:20"', '"planned": "tomorrow"'), { kind: "unreadable", reason: "invalid-shape", path: "records[0].planned", rule: "pattern" }],
+  ];
+  for (const [t, expected] of cases) assert.deepEqual(parseStoreText(t), expected);
 });

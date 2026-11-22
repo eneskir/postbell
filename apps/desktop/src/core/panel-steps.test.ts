@@ -30,7 +30,7 @@ function share(platform: "x" | "tiktok", opts: { missing?: boolean; status?: "do
 test("unblocked share: every step ready, marking works", () => {
   const s = share("x");
   assert.deepEqual(panelSteps(s), { reveal: true, share: { kind: "ready" }, mark: { kind: "ready" }, skip: true });
-  assert.deepEqual(markShare(s, "done", NOW), { ok: true, record: { share: s.id, status: "done", at: NOW } });
+  assert.deepEqual(markShare(s, "done", NOW), { ok: true, record: { share: s.id, status: "done", at: NOW, title: s.content.title, planned: s.plannedAt } });
 });
 
 test("missing file: no reveal, share and mark blocked; marking is refused, skipping works", () => {
