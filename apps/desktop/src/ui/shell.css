@@ -388,7 +388,7 @@
   pointer-events: none;
 }
 
-.nav-tip {
+.tip {
   z-index: 2;
   padding: var(--space-2xs) var(--space-xs);
   border: 1px solid var(--color-border-strong);

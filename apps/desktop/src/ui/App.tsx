@@ -13,6 +13,7 @@ import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
 import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
 import { AccountForm, AccountsPage, type AccountSelection } from "./accounts-page.tsx";
 import { CalendarPage } from "./calendar-page.tsx";
+import { HistoryPage } from "./history-page.tsx";
 import { ContentPanel, ContentsPage, type ContentActions } from "./contents-page.tsx";
 import { brandStatesOf, loadBrandPackages, readingOf, sharesOf, type BrandPackages } from "./brand-data.ts";
 import { BrandNewPage } from "./brand-new.tsx";
@@ -360,6 +361,17 @@ export function App({ port }: { port: Port }) {
         openPanel={(content) => pickRow({ kind: "content", content })}
         go={go}
         reread={() => void reloadPackages()}
+      />
+    ) : route.kind === "history" && store ? (
+      <HistoryPage
+        records={store.records}
+        shares={packages ? shares : null}
+        today={dateOf(now)}
+        brandOf={brandOf}
+        undo={(id) => {
+          update((st) => withoutRecord(st, id));
+          say(text.history.undone);
+        }}
       />
     ) : route.kind === "brand" && route.page === "calendar" ? (
       <CalendarPage

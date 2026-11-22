@@ -141,10 +141,11 @@ const SKELETON = [
 
 const bar = (width: string) => <span className="skeleton" style={{ width: `var(${width})` }} />;
 
-export function SkeletonList({ label, groups = SKELETON.length }: { label: string; groups?: number }) {
+// Without a label the page shows its own loading line.
+export function SkeletonList({ label, groups = SKELETON.length }: { label?: string; groups?: number }) {
   return (
     <div className="skeleton-block" role="status" aria-busy="true">
-      <p className="page-summary">{label}</p>
+      {label && <p className="page-summary">{label}</p>}
       <div className="skeleton-list" aria-hidden="true">
         {SKELETON.slice(0, groups).map((g) => (
           <div key={g.label}>
