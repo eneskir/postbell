@@ -224,7 +224,7 @@ export const fakePort: Port = {
         ])
           store = withRecord(store, r);
       }
-      const text = scenario === "missing" ? null : scenario === "corrupt" ? "{bozuk" : scenario === "newer" ? '{"version": 3}' : serializeStore(store);
+      const text = scenario === "missing" ? null : scenario === "corrupt" ? "{bozuk" : scenario === "newer" ? '{"version": 4}' : serializeStore(store);
       return { ok: true, value: { path: "bellek (sahte kabuk)", text } };
     },
     async save(next) {

@@ -1,11 +1,12 @@
 import { LANGUAGES, type Platform } from "./manifest.ts";
 import { validate, type Schema } from "./schema.ts";
 import { FORMATS, formatsOf, NETWORKS, TWO_STEP, type Account, type AccountDetails, type AccountId, type BrandId, type Network, type PlannedAt, type ShareId, type ShareRecord, type Times, type TwoStep } from "./shares.ts";
-import { formatLocal, formatTime, parseDate, parseLocal, parseTime, TIME_PATTERN, type TimeOfDay } from "./time.ts";
+import { formatLocal, formatTime, parseDate, parseLocal, parseTime, TIME_PATTERN, type LocalMs, type TimeOfDay } from "./time.ts";
 
 // Version 2 added the account details (e-mail, 2-step type, recovery e-mail, note) and the title and planned time on
-// records. A version 1 file reads as version 2 with those fields absent; the next save writes version 2.
-export const STORE_VERSION = 2;
+// records; version 3 the vault backup state. An older file reads as version 3 with the newer fields absent; the next
+// save writes version 3.
+export const STORE_VERSION = 3;
 
 export type Brand = {
   readonly id: BrandId;
@@ -16,6 +17,11 @@ export type Brand = {
 };
 export type Group = { readonly id: string; readonly name: string; readonly open: boolean; readonly brands: readonly BrandId[] };
 export type Sidebar = { readonly collapsed: boolean; readonly width: number; readonly openBrands: readonly BrandId[] };
+// `last`: when the last vault backup was saved. `pending`: what changed in the vault since then, for the reminder on
+// Hesaplar; a new account outranks a changed password. `later`: the reminder was put off until the next change.
+export type BackupPending = "new-account" | "changed-password";
+export const BACKUP_PENDING: readonly BackupPending[] = ["new-account", "changed-password"];
+export type BackupState = { readonly last?: LocalMs; readonly pending?: BackupPending; readonly later?: true };
 
 export type StoreFile = {
   readonly version: typeof STORE_VERSION;
@@ -26,6 +32,7 @@ export type StoreFile = {
   // No app setting is stored yet; the empty object is part of the format since version 1.
   readonly settings: Readonly<Record<string, never>>;
   readonly sidebar: Sidebar;
+  readonly backup: BackupState;
 };
 
 export const EMAIL_MAX = 254;
@@ -43,6 +50,7 @@ export const emptyStore = (): StoreFile => ({
   records: [],
   settings: {},
   sidebar: { collapsed: false, width: SIDEBAR_DEFAULT, openBrands: [] },
+  backup: {},
 });
 
 const SLUG = "^[a-z0-9]+(?:-[a-z0-9]+)*$";
@@ -73,7 +81,10 @@ const recordV1: Record<string, Schema> = {
 };
 const recordV2: Record<string, Schema> = { ...recordV1, title: str(300), planned: { type: "string", pattern: `${LOCAL_MINUTE}|${LOCAL_DAY}` } };
 
-const storeSchema = (version: 1 | 2): Schema => obj({
+const backupSchema = obj({ last: { type: "string", pattern: LOCAL_MINUTE }, pending: { type: "string", enum: BACKUP_PENDING }, later: { type: "boolean", const: true } }, []);
+
+const storeSchema = (version: 1 | 2 | 3): Schema => {
+  const base: Record<string, Schema> = {
   version: { type: "integer", const: version },
   brands: {
     type: "array",
@@ -96,7 +107,9 @@ const storeSchema = (version: 1 | 2): Schema => obj({
     width: { type: "integer", minimum: SIDEBAR_MIN, maximum: SIDEBAR_MAX },
     openBrands: { type: "array", items: str(40, { pattern: SLUG }) },
   }),
-});
+  };
+  return version === 3 ? obj({ ...base, backup: backupSchema }) : obj(base);
+};
 
 export type StoreState =
   | { readonly kind: "empty" }
@@ -116,7 +129,7 @@ export function parseStoreText(text: string | null): StoreState {
   }
   const version = typeof raw === "object" && raw !== null ? (raw as { version?: unknown }).version : undefined;
   if (typeof version === "number" && Number.isInteger(version) && version > STORE_VERSION) return { kind: "newer-version", version };
-  const v = validate(storeSchema(version === 1 ? 1 : 2), raw);
+  const v = validate(storeSchema(version === 1 || version === 2 ? version : 3), raw);
   if (v) return { kind: "unreadable", reason: "invalid-shape", path: v.path, rule: v.rule };
   const r = raw as RawStore;
   const records: ShareRecord[] = [];
@@ -158,6 +171,8 @@ export function parseStoreText(text: string | null): StoreState {
   }
   for (const [i, b] of r.sidebar.openBrands.entries())
     if (!known.has(b)) return { kind: "unreadable", reason: "invalid-shape", path: `sidebar.openBrands[${i}]`, rule: "brand-ref" };
+  const last = r.backup?.last === undefined ? undefined : parseLocal(r.backup.last);
+  if (last === null) return { kind: "unreadable", reason: "invalid-shape", path: "backup.last", rule: "calendar" };
   return {
     kind: "ready",
     store: {
@@ -168,17 +183,19 @@ export function parseStoreText(text: string | null): StoreState {
       records,
       settings: {},
       sidebar: { collapsed: r.sidebar.collapsed, width: r.sidebar.width, openBrands: r.sidebar.openBrands as BrandId[] },
+      backup: { ...(last ? { last } : {}), ...(r.backup?.pending ? { pending: r.backup.pending } : {}), ...(r.backup?.later ? { later: true as const } : {}) },
     },
   };
 }
 
-// Version 1 is version 2 without the optional fields.
+// Versions 1 and 2 are version 3 without the newer fields.
 type RawStore = {
   brands: { id: string; name: string; sticker: string; folder: string }[];
   groups: { id: string; name: string; open: boolean; brands: string[] }[];
   accounts: ({ id: string; brand: string; network: Network; handle: string; language: Account["language"]; times: Record<string, string> } & RawDetails)[];
   records: { share: string; status: "done" | "skipped"; at: string; title?: string; planned?: string }[];
   sidebar: { collapsed: boolean; width: number; openBrands: string[] };
+  backup?: { last?: string; pending?: BackupPending; later?: true };
 };
 type RawDetails = { email?: string; twoStep?: TwoStep; recoveryEmail?: string; note?: string };
 
@@ -221,6 +238,11 @@ export function serializeStore(s: StoreFile): string {
     })),
     settings: s.settings,
     sidebar: { collapsed: s.sidebar.collapsed, width: s.sidebar.width, openBrands: s.sidebar.openBrands },
+    backup: {
+      ...(s.backup.last === undefined ? {} : { last: formatLocal(s.backup.last) }),
+      ...(s.backup.pending === undefined ? {} : { pending: s.backup.pending }),
+      ...(s.backup.later ? { later: true } : {}),
+    },
   };
   return `${JSON.stringify(raw, null, 2)}\n`;
 }
