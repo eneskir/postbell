@@ -202,6 +202,44 @@ const scenes = [
     await tap("aside.panel button", "Kalan paylaşımları atla");
     await away();
   }],
+  ["calendar_v1--week", "", async () => { await ungroup(); await open("Initech", "Takvim"); await away(); }],
+  ["calendar_v1--empty", "", async () => { await ungroup(); await open("Initech", "Takvim"); await tap(".calendar-nav .button", "›"); await away(); }],
+  ["calendar_v1--selected", "", async () => {
+    await ungroup();
+    await open("Initech", "Takvim");
+    await tap(".chip-late");
+    await away();
+    say("  check:", await ev(`(() => { const w = [...document.querySelectorAll(".calendar-column")].map((c) => c.getBoundingClientRect().width.toFixed(1)); const over = [...document.querySelectorAll(".chip, .chip *, .calendar-day")].filter((e) => e.scrollWidth > e.clientWidth + 1).length; return "columns " + [...new Set(w)].join("/") + " x" + w.length + ", overflowing " + over; })()`));
+  }],
+  ["calendar_v1--loading", "?packages=wait", async () => { await ungroup(); await open("Initech", "Takvim"); await away(); }],
+  ["calendar_v1--error", "?packages=missing", async () => { await ungroup(); await open("Initech", "Takvim"); await away(); }],
+  ["calendar_v1--unscheduled", "", async () => { await ungroup(); await open(); await clearTime("Pinterest"); await tap(".nav-row", "Takvim"); await away(); }],
+  ["app--calendar-finished", "", async () => {
+    await ungroup();
+    await open("Initech", "Takvim");
+    await tap(".chip-late");
+    await tap("aside.panel button", "Paylaşıldı olarak işaretle");
+    await esc();
+    await away();
+    say("  check:", await ev(`document.querySelector(".page-summary").innerText + " | finished cards " + document.querySelectorAll(".chip-finished").length`));
+  }],
+  ["app--calendar-keys", "", async () => {
+    await ungroup();
+    await open("Initech", "Takvim");
+    await ev(`document.querySelector(".chip-late").focus()`);
+    await keyboard();
+    const order = [];
+    for (const [k, c, n] of [["ArrowDown", "ArrowDown", 40], ["ArrowRight", "ArrowRight", 39], ["ArrowUp", "ArrowUp", 38], ["ArrowLeft", "ArrowLeft", 37], ["ArrowLeft", "ArrowLeft", 37]]) {
+      await key(k, c, n);
+      order.push(k + " → " + (await ev(`document.activeElement.dataset.day + "/" + document.activeElement.dataset.index`)));
+    }
+    say("  keys:", order.join(", "));
+    // A button activates on the key's text, so Enter is sent with it.
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+    await sleep(300);
+    say("  enter:", await ev(`document.querySelector("aside.panel h2")?.innerText ?? "no panel"`));
+  }],
   ["brand-new_v1--default", "", async () => { await tap(".nav-row", "Marka ekle"); await away(); }],
   ["brand-settings_v1--default", "", async () => { await settings(); await away(); }],
   ["brand-settings_v1--remove-confirm", "", async () => { await settings(); await tap("button", "Kaldır…"); await away(); }],

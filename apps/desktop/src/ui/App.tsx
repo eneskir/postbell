@@ -12,6 +12,7 @@ import { contentKeyOf, fileKeyOf, lateCount, networkOf, type AccountId, type Bra
 import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
 import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
 import { AccountForm, AccountsPage, type AccountSelection } from "./accounts-page.tsx";
+import { CalendarPage } from "./calendar-page.tsx";
 import { ContentPanel, ContentsPage, type ContentActions } from "./contents-page.tsx";
 import { brandStatesOf, loadBrandPackages, readingOf, sharesOf, type BrandPackages } from "./brand-data.ts";
 import { BrandNewPage } from "./brand-new.tsx";
@@ -357,6 +358,19 @@ export function App({ port }: { port: Port }) {
         selected={panel.kind === "content" ? panel.content : null}
         thumbUrl={(r) => urlOf(placeOfFile(r.brand, r.content.id as ContentId, r.file.path))}
         openPanel={(content) => pickRow({ kind: "content", content })}
+        go={go}
+        reread={() => void reloadPackages()}
+      />
+    ) : route.kind === "brand" && route.page === "calendar" ? (
+      <CalendarPage
+        key={route.brand}
+        brand={route.brand}
+        reading={brandReading(route.brand)}
+        shares={shares}
+        today={dateOf(now)}
+        selected={panel.kind === "share" ? panel.share : null}
+        compact={panel.kind !== "closed"}
+        openPanel={pickShare}
         go={go}
         reread={() => void reloadPackages()}
       />

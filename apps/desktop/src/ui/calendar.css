@@ -1,0 +1,141 @@
+.calendar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-m);
+  min-height: 0;
+}
+
+.calendar-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-s);
+}
+
+.calendar-range {
+  margin: 0;
+  font: var(--text-title);
+}
+
+.calendar-nav {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.calendar-head,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-head {
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+.calendar-day {
+  display: flex;
+  align-items: center;
+  height: var(--size-group-label);
+  padding: 0 var(--space-xs);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font: var(--text-label);
+  white-space: nowrap;
+}
+
+.calendar-day-today {
+  color: var(--color-text);
+}
+
+.calendar-grid {
+  flex: 1;
+  min-height: 0;
+}
+
+.calendar-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+  padding: var(--space-xs);
+  border-radius: var(--radius-s);
+}
+
+.calendar-column-today {
+  background: var(--color-surface);
+}
+
+.chip {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.chip:hover {
+  background: var(--color-selected);
+}
+
+.chip-meta,
+.chip-title,
+.chip-status {
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font: var(--text-caption);
+}
+
+.chip-platform {
+  max-width: 100%;
+  overflow: hidden;
+  font: var(--text-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.chip-late .chip-meta,
+.chip-late .chip-status {
+  color: var(--color-danger);
+}
+
+.chip-due .chip-meta,
+.chip-due .chip-status {
+  color: var(--color-warning);
+}
+
+.chip-finished {
+  border-color: var(--color-border);
+  background: transparent;
+}
+
+.chip-finished .chip-platform {
+  color: var(--color-text-muted);
+}
+
+.chip-selected,
+.chip-selected:hover {
+  border-color: var(--color-text);
+}
+
+.chip-skeleton {
+  height: var(--size-chip-skeleton);
+}
+
+.chip-skeleton:hover {
+  background: var(--color-surface-raised);
+}
