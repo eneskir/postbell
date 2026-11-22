@@ -477,6 +477,29 @@
   gap: var(--space-xs);
 }
 
+/* The form only groups fields and actions for submit; they stay the dialog's own rows. */
+.dialog-form {
+  display: contents;
+}
+
+.dialog-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+}
+
+/* WebView2 draws its own reveal button in a password field; the backup dialogs have none. */
+.dialog-fields .field::-ms-reveal {
+  display: none;
+}
+
+.field-file {
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .toast-region {
   position: absolute;
   right: 0;

@@ -12,6 +12,8 @@ import { contentKeyOf, fileKeyOf, formatsOf, lateCount, networkOf, type Account,
 import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
 import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
 import { hasSecrets, vaultChangeOf, type VaultDraft } from "../core/vault.ts";
+import { backupAccountsOf, reminderOf, withBackupSaved, withReminderLater, withVaultChange } from "../core/backup.ts";
+import { RestoreDialog, SaveDialog, SettingsPage, type DialogResult } from "./backup.tsx";
 import { AccountDetail, AccountForm, AccountsPage, type AccountSelection, type VaultView } from "./accounts-page.tsx";
 import { CalendarPage } from "./calendar-page.tsx";
 import { HistoryPage } from "./history-page.tsx";
@@ -71,6 +73,7 @@ export function App({ port }: { port: Port }) {
   const dismissToast = useCallback((id: number) => setToast((t) => (t?.id === id ? null : t)), []);
   const [removing, setRemoving] = useState<{ readonly brand: BrandId; readonly back: HTMLElement | null } | null>(null);
   const [removingAccount, setRemovingAccount] = useState<{ readonly id: AccountId; readonly back: HTMLElement | null } | null>(null);
+  const [backupDialog, setBackupDialog] = useState<{ readonly kind: "save"; readonly back: HTMLElement | null } | { readonly kind: "restore"; readonly path: string; readonly back: HTMLElement | null } | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const now = useNow();
 
@@ -319,7 +322,8 @@ export function App({ port }: { port: Port }) {
     update((cur) => {
       const again = addAccount(cur, brand, d);
       landed = again.ok && again.id === r.id;
-      return landed && again.ok ? again.store : cur;
+      if (!landed || !again.ok) return cur;
+      return change && hasSecrets(change) ? { ...again.store, backup: withVaultChange(again.store.backup, "new-account") } : again.store;
     });
     if (!landed) {
       void port.vault.remove(r.id).then(reloadVault);
@@ -349,7 +353,8 @@ export function App({ port }: { port: Port }) {
     update((cur) => {
       const again = updateAccount(cur, id, d);
       kept = cur.accounts.some((a) => a.id === id);
-      return again.ok ? again.store : cur;
+      if (!again.ok) return cur;
+      return change && kept ? { ...again.store, backup: withVaultChange(again.store.backup, "changed-password") } : again.store;
     });
     if (change && !kept) void port.vault.remove(id);
     if (change) reloadVault();
@@ -395,6 +400,52 @@ export function App({ port }: { port: Port }) {
     setPanel({ kind: "account", account: id });
     requestAnimationFrame(() => document.querySelector<HTMLElement>(".account-detail-end button")?.focus());
   };
+  const activeBack = () => (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  const openSaveBackup = () => setBackupDialog({ kind: "save", back: activeBack() });
+  const openRestoreBackup = () => {
+    const back = activeBack();
+    void port.backup.pick().then((r) => {
+      if (!r.ok) say(text.backup.pickFailed(r.error.code));
+      else if (r.value !== null) setBackupDialog({ kind: "restore", path: r.value, back });
+    });
+  };
+  // A cancelled second pick keeps the file already shown.
+  const repickBackup = async () => {
+    const r = await port.backup.pick();
+    if (!r.ok) return say(text.backup.pickFailed(r.error.code));
+    const path = r.value;
+    if (path !== null) setBackupDialog((d) => (d?.kind === "restore" ? { ...d, path } : d));
+  };
+  const closeBackup = () => {
+    focusBack(backupDialog?.back);
+    setBackupDialog(null);
+  };
+  // A cancelled save dialog keeps the passphrase dialog open.
+  const saveBackup = async (passphrase: string): Promise<DialogResult | "stay"> => {
+    const s = storeRef.current;
+    if (!s) return "stay";
+    const r = await port.backup.save(backupAccountsOf(s), passphrase, dateOf(localNow()));
+    if (!r.ok) {
+      if (r.error.code === "backup-passphrase-short") return { field: "passphrase", message: text.backup.passphraseHint };
+      return { field: "form", message: r.error.code === "backup-empty" ? text.backup.empty : text.backup.saveFailed(r.error.code) };
+    }
+    if (r.value === null) return "stay";
+    update((cur) => ({ ...cur, backup: withBackupSaved(localNow()) }));
+    say(text.backup.saved(r.value.count));
+    return null;
+  };
+  const restoreBackup = async (passphrase: string): Promise<DialogResult> => {
+    const r = await port.backup.restore(passphrase, (storeRef.current?.accounts ?? []).map((a) => a.id));
+    if (!r.ok) {
+      if (r.error.code === "backup-unreadable") return { field: "passphrase", message: text.backup.unreadable };
+      vaultFailed(r.error);
+      return { field: "form", message: text.backup.restoreFailed(r.error.code) };
+    }
+    reloadVault();
+    say(text.backup.restored(r.value.changed + r.value.added, r.value.skipped));
+    return null;
+  };
+  const backupReminder = store && reminderOf(store.backup);
   const askRemoveAccount = (id: AccountId) => setRemovingAccount({ id, back: document.activeElement instanceof HTMLElement ? document.activeElement : null });
   const confirmRemoveAccount = () => {
     if (!removingAccount) return;
@@ -430,6 +481,8 @@ export function App({ port }: { port: Port }) {
       <BrandNewPage store={store} pickFolder={() => port.dialogs.pickFolder()} onCreate={(d) => createBrand(d, route.group)} onCancel={() => go(before.current)} />
     ) : store && settingsOf ? (
       <BrandSettingsPage key={settingsOf.id} store={store} brand={settingsOf} pickFolder={() => port.dialogs.pickFolder()} update={update} onRemove={(back) => askRemove(settingsOf.id, back)} />
+    ) : route.kind === "settings" && store ? (
+      <SettingsPage backup={store.backup} today={dateOf(now)} openSave={openSaveBackup} openRestore={openRestoreBackup} />
     ) : route.kind === "home" && store ? (
       <HomePage
         brands={packages ? brandStatesOf(store, packages) : null}
@@ -455,6 +508,7 @@ export function App({ port }: { port: Port }) {
           addAny={() => openAccountNew(draftFor(store.accounts, route.brand, shares), null)}
           vault={vault}
           retryVault={reloadVault}
+          reminder={backupReminder ? { kind: backupReminder, save: openSaveBackup, later: () => update((s) => ({ ...s, backup: withReminderLater(s.backup) })) } : null}
         />
       )
     ) : route.kind === "brand" && route.page === "contents" && store ? (
@@ -691,6 +745,8 @@ export function App({ port }: { port: Port }) {
           onCancel={cancelRemove}
         />
       )}
+      {backupDialog?.kind === "save" && <SaveDialog save={saveBackup} onClose={closeBackup} />}
+      {backupDialog?.kind === "restore" && <RestoreDialog path={backupDialog.path} pick={repickBackup} restore={restoreBackup} onClose={closeBackup} />}
       {removedAccount && (
         <ConfirmDialog
           title={text.removeAccount.title(removedAccount.handle, removedAccount.network)}

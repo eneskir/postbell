@@ -2,7 +2,7 @@ import { useEffect, useId, useState, type FormEvent, type ReactNode } from "reac
 import { accountProblems, HANDLE_MAX, type AccountDraft, type AccountRow } from "../core/accounts.ts";
 import { LANGUAGES, type Language } from "../core/manifest.ts";
 import { NETWORKS, TWO_STEP, type Account, type AccountId, type BrandId, type Network, type TwoStep } from "../core/shares.ts";
-import { EMAIL_MAX, NOTE_MAX, type StoreFile } from "../core/store.ts";
+import { EMAIL_MAX, NOTE_MAX, type BackupPending, type StoreFile } from "../core/store.ts";
 import { CODES_MAX, EMPTY_VAULT_DRAFT, PASSWORD_MAX, signsInWithInstagram, type VaultDraft, type VaultStatus } from "../core/vault.ts";
 import { Button, EmptyState, Notice } from "./components.tsx";
 import { text } from "./text.ts";
@@ -35,9 +35,13 @@ type PageProps = {
   readonly addAny: () => void;
   readonly vault: VaultView;
   readonly retryVault: () => void;
+  readonly reminder: BackupReminder | null;
 };
 
-export function AccountsPage({ rows, selected, openAccount, addMissing, addAny, vault, retryVault }: PageProps) {
+// `accounts/V1 · backup-reminder`: a vault change the last backup does not hold.
+export type BackupReminder = { readonly kind: BackupPending; readonly save: () => void; readonly later: () => void };
+
+export function AccountsPage({ rows, selected, openAccount, addMissing, addAny, vault, retryVault, reminder }: PageProps) {
   if (rows.length === 0) return <EmptyState drawing="whirl-5" title={text.accounts.emptyTitle} body={text.accounts.emptyBody} action={{ label: text.accounts.add, onClick: addAny }} />;
   const missing = rows.filter((r) => r.kind === "missing").length;
   // A network with more than one row names each row's language, as the add rows already do.
@@ -45,6 +49,11 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny, 
   return (
     <div className="page-body accounts">
       <p className="page-summary">{text.accounts.summary(rows.length, missing)}</p>
+      {reminder && (
+        <Notice tone="neutral" action={{ label: text.backup.save, onClick: reminder.save }} later={{ label: text.backup.later, onClick: reminder.later }}>
+          {text.backup.reminder(reminder.kind)}
+        </Notice>
+      )}
       {vault.kind === "error" && (
         <Notice tone="danger" detail={vault.code} action={{ label: text.accounts.retry, onClick: retryVault }}>
           {text.accounts.vaultError}

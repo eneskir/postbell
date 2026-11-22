@@ -119,7 +119,7 @@ export function ErrorState({ tag, title, body, action, link }: { tag: string; ti
   );
 }
 
-export function Notice({ tone, children, action, detail }: { tone: "neutral" | "danger"; children: ReactNode; action?: Action; detail?: string }) {
+export function Notice({ tone, children, action, later, detail }: { tone: "neutral" | "danger"; children: ReactNode; action?: Action; later?: Action; detail?: string }) {
   return (
     <div className={`notice${tone === "danger" ? " notice-danger" : ""}`} role={tone === "danger" ? "alert" : "status"}>
       <p className="notice-text" title={detail}>
@@ -128,6 +128,11 @@ export function Notice({ tone, children, action, detail }: { tone: "neutral" | "
       {action && (
         <Button variant="tertiary" onClick={action.onClick}>
           {action.label}
+        </Button>
+      )}
+      {later && (
+        <Button variant="ghost" onClick={later.onClick}>
+          {later.label}
         </Button>
       )}
     </div>
