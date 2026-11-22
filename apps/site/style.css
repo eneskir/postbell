@@ -1,4 +1,4 @@
-/* Colors and type come from the app's tokens (apps/desktop/src/ui/tokens.gen.css).
+/* Colors come from the app's tokens (apps/desktop/src/ui/tokens.gen.css); the type sizes are this page's own.
    Inter ships with the site (OFL-1.1, fonts/OFL.txt); its latin subset covers every letter on the page, dotless i (U+0131) included. */
 @font-face {
   font-family: "Inter";
