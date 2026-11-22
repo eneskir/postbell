@@ -1,12 +1,29 @@
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { accountProblems, HANDLE_MAX, type AccountDraft, type AccountRow } from "../core/accounts.ts";
 import { LANGUAGES, type Language } from "../core/manifest.ts";
 import { NETWORKS, TWO_STEP, type Account, type AccountId, type BrandId, type Network, type TwoStep } from "../core/shares.ts";
 import { EMAIL_MAX, NOTE_MAX, type StoreFile } from "../core/store.ts";
-import { Button, EmptyState } from "./components.tsx";
+import { CODES_MAX, EMPTY_VAULT_DRAFT, PASSWORD_MAX, signsInWithInstagram, type VaultDraft, type VaultStatus } from "../core/vault.ts";
+import { Button, EmptyState, Notice } from "./components.tsx";
 import { text } from "./text.ts";
 
 type MissingRow = Extract<AccountRow, { kind: "missing" }>;
+
+// The vault as the UI knows it: which accounts have a password and how many codes, never the values.
+export type VaultView =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly status: ReadonlyMap<AccountId, VaultStatus> }
+  | { readonly kind: "error"; readonly code: string };
+
+const statusOf = (v: VaultView, id: AccountId) => (v.kind === "ready" ? v.status.get(id) : undefined);
+
+function passwordText(a: Account, v: VaultView): string {
+  const st = statusOf(v, a.id);
+  if (v.kind !== "loading" && signsInWithInstagram(a.network, st)) return text.accounts.withInstagram;
+  if (v.kind === "error") return text.accounts.unreadable;
+  if (v.kind === "loading") return "";
+  return st?.password ? text.accounts.passwordHidden : text.accounts.none;
+}
 
 export type AccountSelection = { readonly kind: "account"; readonly id: AccountId } | { readonly kind: "missing"; readonly network: Network; readonly language: Language } | null;
 
@@ -16,9 +33,11 @@ type PageProps = {
   readonly openAccount: (id: AccountId) => void;
   readonly addMissing: (row: MissingRow) => void;
   readonly addAny: () => void;
+  readonly vault: VaultView;
+  readonly retryVault: () => void;
 };
 
-export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }: PageProps) {
+export function AccountsPage({ rows, selected, openAccount, addMissing, addAny, vault, retryVault }: PageProps) {
   if (rows.length === 0) return <EmptyState drawing="whirl-5" title={text.accounts.emptyTitle} body={text.accounts.emptyBody} action={{ label: text.accounts.add, onClick: addAny }} />;
   const missing = rows.filter((r) => r.kind === "missing").length;
   // A network with more than one row names each row's language, as the add rows already do.
@@ -26,6 +45,11 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }
   return (
     <div className="page-body accounts">
       <p className="page-summary">{text.accounts.summary(rows.length, missing)}</p>
+      {vault.kind === "error" && (
+        <Notice tone="danger" detail={vault.code} action={{ label: text.accounts.retry, onClick: retryVault }}>
+          {text.accounts.vaultError}
+        </Notice>
+      )}
       <div className="account-table" role="table" aria-label={text.page.accounts}>
         <div role="rowgroup">
           <div role="row" className="account-head">
@@ -38,6 +62,9 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }
             <span role="columnheader" className="account-email">
               {text.accounts.head.email}
             </span>
+            <span role="columnheader" className="account-password">
+              {text.accounts.head.passwordLabel}
+            </span>
             <span role="columnheader" className="account-two-step">
               {text.accounts.head.twoStep}
             </span>
@@ -47,7 +74,7 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }
         <div role="rowgroup">
           {rows.map((r) =>
             r.kind === "account" ? (
-              <AccountLine key={r.account.id} row={r} languageShown={many(r.account.network)} selected={selected?.kind === "account" && selected.id === r.account.id} open={openAccount} />
+              <AccountLine key={r.account.id} row={r} vault={vault} languageShown={many(r.account.network)} selected={selected?.kind === "account" && selected.id === r.account.id} open={openAccount} />
             ) : (
               <MissingLine key={`${r.network}/${r.language}`} row={r} selected={selected?.kind === "missing" && selected.network === r.network && selected.language === r.language} add={addMissing} />
             ),
@@ -61,7 +88,7 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }
   );
 }
 
-function AccountLine({ row: { account: a }, languageShown, selected, open }: { row: Extract<AccountRow, { kind: "account" }>; languageShown: boolean; selected: boolean; open: (id: AccountId) => void }) {
+function AccountLine({ row: { account: a }, vault, languageShown, selected, open }: { row: Extract<AccountRow, { kind: "account" }>; vault: VaultView; languageShown: boolean; selected: boolean; open: (id: AccountId) => void }) {
   return (
     <div role="row" className={`account-row${selected ? " account-row-selected" : ""}`}>
       <span role="cell" className="account-network">
@@ -74,6 +101,9 @@ function AccountLine({ row: { account: a }, languageShown, selected, open }: { r
       </span>
       <span role="cell" className="account-email">
         {a.email ?? text.accounts.none}
+      </span>
+      <span role="cell" className="account-password">
+        {passwordText(a, vault)}
       </span>
       <span role="cell" className="account-two-step">
         {text.accounts.twoStepShort(a.twoStep)}
@@ -95,6 +125,9 @@ function MissingLine({ row, selected, add }: { row: MissingRow; selected: boolea
       <span role="cell" className="account-email">
         {text.accounts.none}
       </span>
+      <span role="cell" className="account-password">
+        {text.accounts.none}
+      </span>
       <span role="cell" className="account-two-step">
         {text.accounts.none}
       </span>
@@ -107,14 +140,50 @@ function MissingLine({ row, selected, add }: { row: MissingRow; selected: boolea
   );
 }
 
-export function AccountDetail({ account: a, onEdit }: { account: Account; onEdit: () => void }) {
+export const REVEAL_MS = 30_000;
+
+type DetailProps = {
+  readonly account: Account;
+  readonly vault: VaultView;
+  readonly onEdit: () => void;
+  // The password for 30 seconds; null when it could not be read (the caller says why).
+  readonly reveal: () => Promise<string | null>;
+  readonly copy: () => void;
+  // Null when Postbell has no page for the network (Threads).
+  readonly openNetwork: (() => void) | null;
+};
+
+export function AccountDetail({ account: a, vault, onEdit, reveal, copy, openNetwork }: DetailProps) {
+  const [shown, setShown] = useState<string | null>(null);
+  // Hidden after 30 seconds, and at once when the window is hidden or minimized.
+  useEffect(() => {
+    if (shown === null) return;
+    const timer = setTimeout(() => setShown(null), REVEAL_MS);
+    const onHide = () => document.hidden && setShown(null);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [shown]);
+  const st = statusOf(vault, a.id);
+  const error = vault.kind === "error";
+  const hasPassword = st?.password === true;
+  const codes = error ? text.accounts.unreadable : st && st.codes > 0 ? text.accounts.codesStored(st.codes) : text.accounts.none;
   const rows: readonly (readonly [string, string])[] = [
     [text.accounts.detail.language, text.accounts.language(a.language)],
     [text.accounts.detail.email, a.email ?? text.accounts.none],
+    [text.accounts.detail.passwordLabel, shown ?? passwordText(a, vault)],
     [text.accounts.detail.twoStep, a.twoStep === undefined ? text.accounts.none : text.accounts.twoStepName(a.twoStep)],
+    [text.accounts.detail.codes, codes],
     [text.accounts.detail.recoveryEmail, a.recoveryEmail ?? text.accounts.none],
     [text.accounts.detail.note, a.note ?? text.accounts.none],
   ];
+  const passwordStep = hasPassword || (error && !signsInWithInstagram(a.network, undefined));
+  const toggle = () => {
+    if (shown !== null) setShown(null);
+    else void reveal().then(setShown);
+  };
   return (
     <>
       <h2 className="panel-heading">{text.accounts.editTitle(a.handle, a.network)}</h2>
@@ -126,6 +195,33 @@ export function AccountDetail({ account: a, onEdit }: { account: Account; onEdit
           </div>
         ))}
       </dl>
+      {(passwordStep || openNetwork) && (
+        <>
+          <hr className="share-divider" />
+          {passwordStep && (
+            <section className="share-step">
+              <h3 className="share-step-title">{text.accounts.stepPassword}</h3>
+              <div className="share-actions">
+                <Button variant="tertiary" disabled={!hasPassword} onClick={copy}>
+                  {text.accounts.copy}
+                </Button>
+                <Button variant="tertiary" disabled={!hasPassword} onClick={toggle}>
+                  {shown === null ? text.accounts.show : text.accounts.hide}
+                </Button>
+              </div>
+            </section>
+          )}
+          {openNetwork && (
+            <section className="share-step">
+              <h3 className="share-step-title">{passwordStep ? text.accounts.stepOpen : text.accounts.open}</h3>
+              <Button variant="primary" onClick={openNetwork}>
+                {text.accounts.openNetwork(a.network)}
+              </Button>
+              {passwordStep && <p className="share-hint">{error ? text.accounts.vaultErrorNote : text.accounts.revealNote}</p>}
+            </section>
+          )}
+        </>
+      )}
       <div className="account-detail-end">
         <Button variant="ghost" onClick={onEdit}>
           {text.accounts.editDetails}
@@ -142,15 +238,21 @@ type FormProps = {
   readonly self?: AccountId;
   readonly networkFixed: boolean;
   readonly title: (d: AccountDraft) => string;
-  readonly onSave: (d: AccountDraft) => void;
+  // What is in the vault now, for the edit placeholders; undefined for a new account.
+  readonly stored?: VaultStatus;
+  // Resolves to an error text when the account was not saved.
+  readonly onSave: (d: AccountDraft, secrets: VaultDraft) => Promise<string | null>;
   readonly onCancel: () => void;
   readonly onRemove?: () => void;
 };
 
-export function AccountForm({ store, brand, initial, self, networkFixed, title, onSave, onCancel, onRemove }: FormProps) {
-  const id = { network: useId(), handle: useId(), language: useId(), email: useId(), twoStep: useId(), recoveryEmail: useId(), note: useId() };
+export function AccountForm({ store, brand, initial, self, networkFixed, title, stored, onSave, onCancel, onRemove }: FormProps) {
+  const id = { network: useId(), handle: useId(), language: useId(), email: useId(), password: useId(), twoStep: useId(), codes: useId(), recoveryEmail: useId(), note: useId() };
   const [draft, setDraft] = useState(initial);
+  const [secrets, setSecrets] = useState<VaultDraft>(EMPTY_VAULT_DRAFT);
   const [tried, setTried] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const problems = accountProblems(store, brand, draft, self);
   const handle = problems.find((p) => p.field === "handle");
   const language = problems.find((p) => p.field === "language");
@@ -160,7 +262,12 @@ export function AccountForm({ store, brand, initial, self, networkFixed, title, 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setTried(true);
-    if (problems.length === 0) onSave(draft);
+    if (problems.length > 0 || saving) return;
+    setSaving(true);
+    void onSave(draft, secrets).then((error) => {
+      setSaving(false);
+      setSaveError(error);
+    });
   };
   return (
     <form className="account-form" onSubmit={submit} noValidate>
@@ -191,6 +298,19 @@ export function AccountForm({ store, brand, initial, self, networkFixed, title, 
       <FormField id={id.email} label={text.accounts.fieldEmail}>
         <TextInput id={id.email} type="email" value={draft.email} max={EMAIL_MAX} onChange={(email) => set({ email })} />
       </FormField>
+      <FormField id={id.password} label={text.accounts.fieldPassword}>
+        <input
+          id={id.password}
+          className="field field-block"
+          type="password"
+          value={secrets.password}
+          maxLength={PASSWORD_MAX}
+          placeholder={stored?.password ? text.accounts.passwordKeep : undefined}
+          spellCheck={false}
+          autoComplete="new-password"
+          onChange={(e) => setSecrets((v) => ({ ...v, password: e.target.value }))}
+        />
+      </FormField>
       <FormField id={id.twoStep} label={text.accounts.fieldTwoStep}>
         <Select<TwoStep | "">
           id={id.twoStep}
@@ -199,14 +319,32 @@ export function AccountForm({ store, brand, initial, self, networkFixed, title, 
           onChange={(t) => set({ twoStep: t === "" ? undefined : t })}
         />
       </FormField>
+      <FormField id={id.codes} label={text.accounts.fieldCodes}>
+        <textarea
+          id={id.codes}
+          className="field field-block field-area"
+          value={secrets.codes}
+          maxLength={CODES_MAX}
+          placeholder={stored && stored.codes > 0 ? text.accounts.codesKeep(stored.codes) : text.accounts.codesPlaceholder}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => setSecrets((v) => ({ ...v, codes: e.target.value }))}
+        />
+      </FormField>
       <FormField id={id.recoveryEmail} label={text.accounts.fieldRecoveryEmail}>
         <TextInput id={id.recoveryEmail} type="email" value={draft.recoveryEmail} max={EMAIL_MAX} onChange={(recoveryEmail) => set({ recoveryEmail })} />
       </FormField>
       <FormField id={id.note} label={text.accounts.fieldNote}>
         <TextInput id={id.note} value={draft.note} max={NOTE_MAX} placeholder={text.accounts.optional} onChange={(note) => set({ note })} />
       </FormField>
+      <p className="share-note">{text.accounts.vaultNote}</p>
+      {saveError && (
+        <p className="form-field-error" role="alert">
+          {saveError}
+        </p>
+      )}
       <div className="account-form-actions">
-        <Button variant="primary" submit>
+        <Button variant="primary" submit disabled={saving}>
           {self === undefined ? text.accounts.save : text.accounts.saveEdit}
         </Button>
         <Button variant="ghost" onClick={onCancel}>

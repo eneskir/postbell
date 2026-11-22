@@ -3,15 +3,16 @@ import { accountRows, addAccount, draftFor, draftOf, removeAccount, setupStepOf,
 import { alarmsOf, DEFAULT_NOTIFY } from "../core/alarms.ts";
 import type { AppInfo, ParseResult } from "../core/app-info.ts";
 import { addBrand, removeBrand, type BrandDraft } from "../core/brands.ts";
-import type { Port, PortErrorCode } from "../core/port.ts";
+import type { Port, PortError, PortErrorCode } from "../core/port.ts";
 import { dateOf } from "../core/time.ts";
 import { loadStore, storeScreenOf, type Screen, type StoreScreenError } from "../core/screen.ts";
 import { markShare } from "../core/panel-steps.ts";
 import { contentRowOf, contentsView, skipLeft, type ContentRow } from "../core/contents.ts";
-import { contentKeyOf, fileKeyOf, lateCount, networkOf, type AccountId, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "../core/shares.ts";
+import { contentKeyOf, fileKeyOf, formatsOf, lateCount, networkOf, type Account, type AccountId, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "../core/shares.ts";
 import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
 import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
-import { AccountDetail, AccountForm, AccountsPage, type AccountSelection } from "./accounts-page.tsx";
+import { hasSecrets, vaultChangeOf, type VaultDraft } from "../core/vault.ts";
+import { AccountDetail, AccountForm, AccountsPage, type AccountSelection, type VaultView } from "./accounts-page.tsx";
 import { CalendarPage } from "./calendar-page.tsx";
 import { HistoryPage } from "./history-page.tsx";
 import { ContentPanel, ContentsPage, type ContentActions } from "./contents-page.tsx";
@@ -56,6 +57,8 @@ export function App({ port }: { port: Port }) {
   const storeRef = useRef<StoreFile | null>(null);
   const [packages, setPackages] = useState<BrandPackages | null>(null);
   const [saveError, setSaveError] = useState<PortErrorCode | null>(null);
+  const [vault, setVault] = useState<VaultView>({ kind: "loading" });
+  const [vaultAttempt, setVaultAttempt] = useState(0);
   const [dev, setDev] = useState<Dev | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [route, setRoute] = useState<Route>(HOME);
@@ -205,6 +208,26 @@ export function App({ port }: { port: Port }) {
     if (panel.kind === "content" && packages && !(contents && contentRowOf(contents, panel.content))) closePanel();
   }, [panel, store, packages, shares, contents, closePanel]);
 
+  const accountIds = store?.accounts.map((a) => a.id).join(" ") ?? null;
+  useEffect(() => {
+    if (accountIds === null) return;
+    let live = true;
+    void port.vault.status(accountIds === "" ? [] : (accountIds.split(" ") as AccountId[])).then((r) => {
+      if (live) setVault(r.ok ? { kind: "ready", status: new Map(r.value.map((v) => [v.account, v])) } : { kind: "error", code: r.error.code });
+    });
+    return () => {
+      live = false;
+    };
+  }, [port, accountIds, vaultAttempt]);
+  const reloadVault = useCallback(() => setVaultAttempt((n) => n + 1), []);
+  // A failed vault call may mean the vault itself is gone; the status says so on the page.
+  const vaultFailed = useCallback(
+    (e: PortError) => {
+      if (e.code === "vault-unavailable") reloadVault();
+    },
+    [reloadVault],
+  );
+
   // Not sent before packages load: an empty list moves the shell's last-check time and an alarm due meanwhile is lost.
   const sentPlan = useRef("");
   useEffect(() => {
@@ -264,6 +287,7 @@ export function App({ port }: { port: Port }) {
     if (ofBrand(before.current)) before.current = HOME;
     if (ofBrand(route)) go(HOME);
     else if (panel.kind === "share" && panel.share.startsWith(`${id}/`)) setPanel({ kind: "closed" });
+    removeSecrets(storeRef.current?.accounts.filter((a) => a.brand === id) ?? []);
     update((s) => removeBrand(s, id));
     document.querySelector<HTMLElement>("main.page")?.focus();
   };
@@ -273,22 +297,86 @@ export function App({ port }: { port: Port }) {
   };
 
   const focusAccount = (id: AccountId) => requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-account="${id}"]`)?.focus());
-  const createAccount = (brand: BrandId, d: AccountDraft) => {
+  const vaultWriteError = (e: PortError) => (e.code === "vault-too-large" ? text.accounts.vaultTooLarge : text.accounts.vaultWriteFailed(e.code));
+  // The vault is written first, so an account is never saved without the password typed for it.
+  const createAccount = async (brand: BrandId, d: AccountDraft, secrets: VaultDraft): Promise<string | null> => {
     const s = storeRef.current;
     const r = s && addAccount(s, brand, d);
-    if (!r?.ok) return;
-    update(() => r.store);
+    if (!r?.ok) return null;
+    const change = vaultChangeOf(secrets, true);
+    if (change && hasSecrets(change)) {
+      const w = await port.vault.write(r.id, change);
+      if (!w.ok) {
+        vaultFailed(w.error);
+        return vaultWriteError(w.error);
+      }
+    } else if (change) {
+      // Clears what an earlier account with the same id may have left in the vault.
+      void port.vault.write(r.id, change);
+    }
+    update((cur) => {
+      const again = addAccount(cur, brand, d);
+      return again.ok ? again.store : cur;
+    });
+    reloadVault();
     setPanel({ kind: "closed" });
     focusAccount(r.id);
     const added = r.store.accounts.find((a) => a.id === r.id);
     if (added) say(text.accounts.added(added.handle));
+    return null;
   };
-  const saveAccount = (id: AccountId, d: AccountDraft) => {
+  const saveAccount = async (id: AccountId, d: AccountDraft, secrets: VaultDraft): Promise<string | null> => {
     const s = storeRef.current;
     const r = s && updateAccount(s, id, d);
-    if (!r?.ok) return;
-    update(() => r.store);
+    if (!r?.ok) return null;
+    const change = vaultChangeOf(secrets, false);
+    if (change) {
+      const w = await port.vault.write(id, change);
+      if (!w.ok) {
+        vaultFailed(w.error);
+        return vaultWriteError(w.error);
+      }
+      reloadVault();
+    }
+    update((cur) => {
+      const again = updateAccount(cur, id, d);
+      return again.ok ? again.store : cur;
+    });
     showDetail(id);
+    return null;
+  };
+  const removeSecrets = (accounts: readonly Account[]) => {
+    if (accounts.length === 0) return;
+    void Promise.all(accounts.map((a) => port.vault.remove(a.id))).then((results) => {
+      const failed = results.find((r) => !r.ok);
+      if (failed && !failed.ok) say(text.accounts.vaultRemoveFailed(failed.error.code));
+      reloadVault();
+    });
+  };
+  const revealPassword = async (id: AccountId): Promise<string | null> => {
+    const r = await port.vault.password(id);
+    if (r.ok) return r.value;
+    vaultFailed(r.error);
+    say(text.accounts.revealFailed(r.error.code));
+    return null;
+  };
+  const copyPassword = (id: AccountId) => {
+    void port.vault.copy(id).then((r) => {
+      if (r.ok) say(text.accounts.copied);
+      else {
+        vaultFailed(r.error);
+        say(text.accounts.copyFailed(r.error.code));
+      }
+    });
+  };
+  // The network's first format's page; it asks the user to sign in when needed.
+  const openNetworkOf = (a: Account) => {
+    const first = formatsOf(a.network)[0];
+    if (first === undefined) return null;
+    return () =>
+      void port.links.openSharePage(first, "").then((r) => {
+        if (!r.ok) say(text.accounts.openFailed(r.error.code));
+      });
   };
   // Back from the form to the account's details; focus goes to «Bilgileri düzenle».
   const showDetail = (id: AccountId) => {
@@ -301,6 +389,7 @@ export function App({ port }: { port: Port }) {
     const gone = storeRef.current?.accounts.find((a) => a.id === removingAccount.id);
     setRemovingAccount(null);
     setPanel({ kind: "closed" });
+    if (gone) removeSecrets([gone]);
     update((s) => removeAccount(s, removingAccount.id));
     document.querySelector<HTMLElement>("main.page")?.focus();
     if (gone) say(text.accounts.removed(gone.handle));
@@ -352,6 +441,8 @@ export function App({ port }: { port: Port }) {
           openAccount={(account) => pickRow({ kind: "account", account })}
           addMissing={(r) => pickRow({ kind: "account-new", draft: { network: r.network, handle: "", language: r.language }, row: { languageShown: r.languageShown } })}
           addAny={() => openAccountNew(draftFor(store.accounts, route.brand, shares), null)}
+          vault={vault}
+          retryVault={reloadVault}
         />
       )
     ) : route.kind === "brand" && route.page === "contents" && store ? (
@@ -523,7 +614,8 @@ export function App({ port }: { port: Port }) {
                 self={shownAccount.id}
                 networkFixed
                 title={() => text.accounts.editTitle(shownAccount.handle, shownAccount.network)}
-                onSave={(d) => saveAccount(shownAccount.id, d)}
+                stored={vault.kind === "ready" ? vault.status.get(shownAccount.id) : undefined}
+                onSave={(d, secrets) => saveAccount(shownAccount.id, d, secrets)}
                 onCancel={() => showDetail(shownAccount.id)}
                 onRemove={() => askRemoveAccount(shownAccount.id)}
               />
@@ -532,7 +624,17 @@ export function App({ port }: { port: Port }) {
           }
         : {
             eyebrow: text.accounts.eyebrowView,
-            content: <AccountDetail key={shownAccount.id} account={shownAccount} onEdit={() => setPanel({ kind: "account", account: shownAccount.id, editing: true })} />,
+            content: (
+              <AccountDetail
+                key={shownAccount.id}
+                account={shownAccount}
+                vault={vault}
+                onEdit={() => setPanel({ kind: "account", account: shownAccount.id, editing: true })}
+                reveal={() => revealPassword(shownAccount.id)}
+                copy={() => copyPassword(shownAccount.id)}
+                openNetwork={openNetworkOf(shownAccount)}
+              />
+            ),
             onClose: closePanel,
           }
       : panel.kind === "account-new" && store && route.kind === "brand"
@@ -546,7 +648,7 @@ export function App({ port }: { port: Port }) {
                 initial={panel.draft}
                 networkFixed={panel.row !== null}
                 title={(d) => text.accounts.newTitle(d.network, panel.row?.languageShown ? d.language : null)}
-                onSave={(d) => createAccount(route.brand, d)}
+                onSave={(d, secrets) => createAccount(route.brand, d, secrets)}
                 onCancel={closePanel}
               />
             ),
@@ -580,7 +682,7 @@ export function App({ port }: { port: Port }) {
       {removedAccount && (
         <ConfirmDialog
           title={text.removeAccount.title(removedAccount.handle, removedAccount.network)}
-          body={text.removeAccount.body(removedAccount.network, Object.keys(removedAccount.times).length > 0)}
+          body={text.removeAccount.body(removedAccount.network, Object.keys(removedAccount.times).length > 0, secretOf(vault, removedAccount.id))}
           confirm={text.removeAccount.confirm}
           cancel={text.removeAccount.cancel}
           onConfirm={confirmRemoveAccount}
@@ -589,6 +691,11 @@ export function App({ port }: { port: Port }) {
       )}
     </Shell>
   );
+}
+
+function secretOf(vault: VaultView, id: AccountId): "password" | "codes" | null {
+  const st = vault.kind === "ready" ? vault.status.get(id) : undefined;
+  return st?.password ? "password" : st && st.codes > 0 ? "codes" : null;
 }
 
 function DevDump({ dev: { info, dump } }: { dev: Dev }) {

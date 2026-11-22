@@ -4,6 +4,7 @@ import { parseAppInfo } from "../../core/app-info.ts";
 import type { PackageDir, PackageFile } from "../../core/packages.ts";
 import { parseAlarmTarget, parsePortError, RESTORE_RESULTS, SHARE_OPEN_RESULTS, type Port, type PortResult } from "../../core/port.ts";
 import { serializeStore } from "../../core/store.ts";
+import { parseVaultStatus } from "../../core/vault.ts";
 import { subscribe } from "./listen.ts";
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<PortResult<T>> {
@@ -88,6 +89,22 @@ export const tauriPort: Port = {
   },
   tray: {
     set: (texts) => call<void>("tray_set", { texts: JSON.stringify(texts) }),
+  },
+  vault: {
+    async status(accounts) {
+      const r = await call<unknown>("vault_status", { accounts });
+      if (!r.ok) return r;
+      const list = parseVaultStatus(r.value);
+      return list ? { ok: true, value: list } : { ok: false, error: { code: "shell-unavailable", detail: "VAULT_STATUS_SHAPE" } };
+    },
+    write: (account, { password, codes, replace }) => call<void>("vault_write", { account, password, codes, replace }),
+    async password(account) {
+      const r = await call<unknown>("vault_password", { account });
+      if (!r.ok) return r;
+      return typeof r.value === "string" ? { ok: true, value: r.value } : { ok: false, error: { code: "shell-unavailable", detail: "VAULT_PASSWORD_SHAPE" } };
+    },
+    copy: (account) => call<void>("vault_copy", { account }),
+    remove: (account) => call<void>("vault_delete", { account }),
   },
   store: {
     async load() {

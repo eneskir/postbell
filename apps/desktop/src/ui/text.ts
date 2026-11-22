@@ -117,9 +117,16 @@ const NETWORK_NAMES = {
 } satisfies Record<Network, readonly [string, string]>;
 const networkName = (p: Platform) => NETWORK_NAMES[networkOf(p)][0];
 const networkAtOf = (n: Network) => `${NETWORK_NAMES[n][0]}'${NETWORK_NAMES[n][1]}`;
+// The accusative suffix, as in «Instagram'ı aç».
+const NETWORK_ACCUSATIVE = { x: "i", instagram: "ı", threads: "i", tiktok: "u", youtube: "u", pinterest: "i" } satisfies Record<Network, string>;
 
 const LANGUAGE_NAMES = { en: "İngilizce", tr: "Türkçe" } satisfies Record<Language, string>;
 const TWO_STEP_NAMES: Record<TwoStep, string> = { none: "Yok", app: "Doğrulama uygulaması", sms: "SMS", email: "E-posta", key: "Güvenlik anahtarı" };
+
+const removedParts = (hasTimes: boolean, secret: "password" | "codes" | null) => {
+  const parts = ["Hesap", ...(hasTimes ? ["paylaşım saatleri"] : []), ...(secret ? [secret === "password" ? "kasadaki şifresi" : "kasadaki yedek kodları"] : [])];
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} ve ${parts.at(-1)}`;
+};
 
 const accountLabel = (n: Network, language: Language | null) => (language ? `${NETWORK_NAMES[n][0]} (${LANGUAGE_NAMES[language]})` : NETWORK_NAMES[n][0]);
 
@@ -245,7 +252,7 @@ export const text = {
     summary: (total: number, missing: number) =>
       missing === 0 ? `${total} hesap.` : missing === total ? `${total} hesap eklenmedi.` : `${total} hesap, ${missing}'${possessive(missing)} eklenmedi.`,
     loading: "Hesaplar yükleniyor…",
-    head: { network: "Platform", handle: "Kullanıcı adı", email: "E-posta", twoStep: "2 adımlı" },
+    head: { network: "Platform", handle: "Kullanıcı adı", email: "E-posta", passwordLabel: "Şifre", twoStep: "2 adımlı" },
     network: (n: Network) => NETWORK_NAMES[n][0],
     language: (l: Language) => LANGUAGE_NAMES[l],
     label: accountLabel,
@@ -254,13 +261,32 @@ export const text = {
     twoStepShort: (t: TwoStep | undefined) => (t === undefined ? "–" : t === "none" ? "Yok" : "Var"),
     twoStepName: (t: TwoStep) => TWO_STEP_NAMES[t],
     twoStepUnset: "Belirtilmedi",
+    passwordHidden: "••••••••",
+    withInstagram: "Instagram ile",
+    unreadable: "Okunamadı",
+    codesStored: (n: number) => `${n} kod, kasada`,
+    vaultError: "Şifre kasası açılamıyor. Hesaplar görünür, şifreler okunamıyor.",
+    retry: "Yeniden dene",
+    stepPassword: "1 · Şifreyi al",
+    stepOpen: "2 · Platformu aç",
+    open: "Platformu aç",
+    copy: "Şifreyi kopyala",
+    show: "Şifreyi göster",
+    hide: "Şifreyi gizle",
+    openNetwork: (n: Network) => `${NETWORK_NAMES[n][0]}'${NETWORK_ACCUSATIVE[n]} aç`,
+    revealNote: "30 sn sonra gizlenir; kopya da panodan silinir.",
+    vaultErrorNote: "Kasa açılınca şifre yeniden kopyalanabilir. Platformu şifresiz açabilirsin.",
+    copied: "Şifre kopyalandı; 30 sn sonra panodan silinir.",
+    copyFailed: (code: string) => `Şifre kopyalanamadı. (${code})`,
+    revealFailed: (code: string) => `Şifre okunamadı. (${code})`,
+    openFailed: (code: string) => `Platform açılamadı. (${code})`,
     add: "Hesap ekle",
     emptyTitle: "İlk hesabını ekle",
     emptyBody: "İlk hesabı ekle; paylaşımlar hesaplarına düşer.",
     eyebrowNew: "Hesap ekle",
     eyebrowEdit: "Hesabı düzenle",
     eyebrowView: "Hesap",
-    detail: { language: "Dil", email: "E-posta", twoStep: "2 adımlı", recoveryEmail: "Kurtarma", note: "Not" },
+    detail: { language: "Dil", email: "E-posta", passwordLabel: "Şifre", twoStep: "2 adımlı", codes: "Yedek kod", recoveryEmail: "Kurtarma", note: "Not" },
     editDetails: "Bilgileri düzenle",
     openLabel: (n: Network, handle: string) => `${NETWORK_NAMES[n][0]} ${handle}`,
     newTitle: (n: Network, language: Language | null) => `${accountLabel(n, language)} hesabı ekle`,
@@ -269,6 +295,15 @@ export const text = {
     fieldHandle: "Kullanıcı adı",
     fieldLanguage: "İçerik dili",
     fieldEmail: "E-posta",
+    fieldPassword: "Şifre",
+    fieldCodes: "Yedek kodlar",
+    passwordKeep: "Değiştirmek için yenisini yaz",
+    codesKeep: (n: number) => `${n} kod kasada. Değiştirmek için yenilerini yaz.`,
+    codesPlaceholder: "Her satıra bir kod",
+    vaultNote: "Şifre ve kodlar bu bilgisayarın kasasında durur.",
+    vaultWriteFailed: (code: string) => `Şifre kasaya yazılamadı; hesap kaydedilmedi. (${code})`,
+    vaultTooLarge: "Şifre ve kodlar kasaya sığmıyor; kodları kısalt.",
+    vaultRemoveFailed: (code: string) => `Hesap kaldırıldı ama kasadaki şifresi silinemedi. (${code})`,
     fieldTwoStep: "2 adımlı doğrulama",
     fieldRecoveryEmail: "Kurtarma e-postası",
     fieldNote: "Not",
@@ -285,8 +320,8 @@ export const text = {
   },
   removeAccount: {
     title: (handle: string, n: Network) => `${handle} · ${NETWORK_NAMES[n][0]} kaldırılsın mı?`,
-    body: (n: Network, hasTimes: boolean) =>
-      `${hasTimes ? "Hesap ve paylaşım saatleri" : "Hesap"} Postbell'den silinir. ${networkAtOf(n)}ki hesabına dokunulmaz. Bu işlem geri alınamaz.`,
+    body: (n: Network, hasTimes: boolean, secret: "password" | "codes" | null) =>
+      `${removedParts(hasTimes, secret)} Postbell'den silinir. ${networkAtOf(n)}ki hesabına dokunulmaz. Bu işlem geri alınamaz.`,
     confirm: "Hesabı kaldır",
     cancel: "Vazgeç",
   },

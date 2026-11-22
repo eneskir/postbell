@@ -359,6 +359,8 @@ const scenes = [
     await away();
   }],
   ["app--account-detail", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await tap(".account-row-main", "Instagram @initech"); await away(); }],
+  ["accounts_v1--password-shown", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await tap(".account-row-main", "Instagram @initech"); await tap("aside.panel button", "Şifreyi göster"); await away(); }],
+  ["accounts_v1--error", "?vault=error", async () => { await ungroup(); await open("Initech", "Hesaplar"); await tap(".account-row-main", "Instagram @initech"); await away(); }],
   ["accounts_v1--edit-form", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await tap(".account-row-main", "Instagram @initech"); await tap("aside.panel button", "Bilgileri düzenle"); await away(); }],
   ["accounts_v1--remove-confirm", "", async () => {
     await ungroup();

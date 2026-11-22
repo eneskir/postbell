@@ -11,6 +11,7 @@ mod setup;
 mod setup_win;
 mod store;
 mod tray;
+mod vault;
 
 use serde::Serialize;
 use std::path::PathBuf;
@@ -205,6 +206,47 @@ fn tray_set(app: AppHandle, texts: String, tray: State<tray::Tray>, options: Sta
     })?;
     log.line("tray: on");
     Ok(())
+}
+
+/// A vault failure is logged with its code and detail, which never carry a secret (`vault::port_err`).
+fn logged<T>(log: &log::Log, r: Result<T, PortErr>) -> Result<T, PortErr> {
+    if let Err(e) = &r {
+        log.line(&format!("{}: {}", e.code, e.detail));
+    }
+    r
+}
+
+#[tauri::command]
+fn vault_status(accounts: Vec<String>, vault: State<vault::Vault>, log: State<Arc<log::Log>>) -> Result<Vec<vault::Status>, PortErr> {
+    logged(&log, vault.status(&accounts))
+}
+
+#[tauri::command]
+fn vault_write(
+    account: String,
+    password: Option<vault::Secret>,
+    codes: Option<Vec<vault::Secret>>,
+    replace: bool,
+    vault: State<vault::Vault>,
+    log: State<Arc<log::Log>>,
+) -> Result<(), PortErr> {
+    logged(&log, vault.write(&account, password, codes, replace))
+}
+
+/// The only command that hands a secret to the UI, which shows it for 30 seconds.
+#[tauri::command]
+fn vault_password(account: String, vault: State<vault::Vault>, log: State<Arc<log::Log>>) -> Result<vault::Secret, PortErr> {
+    logged(&log, vault.password(&account))
+}
+
+#[tauri::command]
+fn vault_copy(account: String, vault: State<vault::Vault>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
+    logged(&log, vault.password(&account).and_then(|p| vault::copy(p, vault::CLEAR_AFTER)))
+}
+
+#[tauri::command]
+fn vault_delete(account: String, vault: State<vault::Vault>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
+    logged(&log, vault.delete(&account))
 }
 
 #[tauri::command]
@@ -407,6 +449,10 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
             app.manage(service);
             app.manage(log.clone());
             app.manage(tray::Tray::new(&dir));
+            // A test copy (`--data-dir`, `--self-test`) keeps its entries apart from the real ones.
+            let options = app.state::<Options>();
+            let test = options.data_dir.is_some() || options.self_test.is_some();
+            app.manage(vault::Vault::open(if test { "Postbell test" } else { "Postbell" }));
             app.manage(DataDir(dir));
             open_main(app, &log)
         })
@@ -433,7 +479,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
                 responder.respond(media::respond(path, request.method(), range, &app.state::<Arc<log::Log>>()));
             });
         })
-        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set])
+        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, vault_status, vault_write, vault_password, vault_copy, vault_delete])
         .run(context)
         .expect("failed to start Postbell");
 }
