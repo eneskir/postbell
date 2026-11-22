@@ -1,7 +1,7 @@
 import { LANGUAGES, type Platform } from "./manifest.ts";
 import { validate, type Schema } from "./schema.ts";
 import { FORMATS, formatsOf, NETWORKS, type Account, type AccountId, type BrandId, type Network, type ShareId, type ShareRecord, type Times } from "./shares.ts";
-import { formatLocal, formatTime, parseLocal, parseTime, type LocalMs, type TimeOfDay } from "./time.ts";
+import { formatLocal, formatTime, parseLocal, parseTime, TIME_PATTERN, type TimeOfDay } from "./time.ts";
 
 export const STORE_VERSION = 1;
 
@@ -21,6 +21,7 @@ export type StoreFile = {
   readonly groups: readonly Group[];
   readonly accounts: readonly Account[];
   readonly records: readonly ShareRecord[];
+  // No app setting is stored yet; the empty object is part of the version 1 format.
   readonly settings: Readonly<Record<string, never>>;
   readonly sidebar: Sidebar;
 };
@@ -40,7 +41,6 @@ export const emptyStore = (): StoreFile => ({
 });
 
 const SLUG = "^[a-z0-9]+(?:-[a-z0-9]+)*$";
-const TIME = "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$";
 const str = (maxLength: number, extra: Partial<Schema> = {}): Schema => ({ type: "string", minLength: 1, maxLength, ...extra });
 const obj = (properties: Record<string, Schema>, required = Object.keys(properties)): Schema => ({
   type: "object",
@@ -72,7 +72,7 @@ const storeSchemaV1: Schema = obj({
       network: { type: "string", enum: NETWORKS },
       handle: str(100),
       language: { type: "string", enum: LANGUAGES },
-      times: obj(Object.fromEntries(FORMATS.map((p) => [p, { type: "string", pattern: TIME }])), []),
+      times: obj(Object.fromEntries(FORMATS.map((p) => [p, { type: "string", pattern: TIME_PATTERN }])), []),
     }),
   },
   records: {
@@ -180,7 +180,7 @@ export function serializeStore(s: StoreFile): string {
     brands: s.brands.map((b) => ({ id: b.id, name: b.name, sticker: b.sticker, folder: b.folder })),
     groups: s.groups.map((g) => ({ id: g.id, name: g.name, open: g.open, brands: g.brands })),
     accounts: s.accounts.map((a) => ({ id: a.id, brand: a.brand, network: a.network, handle: a.handle, language: a.language, times: timesText(a.times) })),
-    records: s.records.map((r) => ({ share: r.share, status: r.status, at: formatLocal(r.at as LocalMs) })),
+    records: s.records.map((r) => ({ share: r.share, status: r.status, at: formatLocal(r.at) })),
     settings: s.settings,
     sidebar: { collapsed: s.sidebar.collapsed, width: s.sidebar.width, openBrands: s.sidebar.openBrands },
   };

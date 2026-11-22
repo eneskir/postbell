@@ -4,6 +4,7 @@ if (typeof PART !== "number") throw new Error("PART is not defined: put `const P
 if (figma.root.name !== "Postbell") throw new Error("Wrong file: " + figma.root.name);
 
 const BUDGET = 80000; // SVG characters per part, leaving room under the plugin output cap
+// The prefixes of ASSET_GROUPS in tools/tokens.mjs; a plugin script cannot import it.
 const WANTED = /^(icon\/nav\/|icon\/brand\/|illustration\/empty\/|logo\/postbell\/)/;
 
 const hex = (c) => "#" + [c.r, c.g, c.b].map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("");

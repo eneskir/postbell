@@ -3,15 +3,12 @@ import type { Port } from "../core/port.ts";
 import { resetWidth, resize, SIDEBAR_STRIP, toggleCollapsed } from "../core/sidebar.ts";
 import { SIDEBAR_MAX, SIDEBAR_MIN, type Sidebar } from "../core/store.ts";
 import { stickers } from "./assets.gen.ts";
-import { Icon, Toast, type ToastView } from "./components.tsx";
+import { DRAG, Icon, Toast, type ToastView } from "./components.tsx";
 import type { View } from "./route.ts";
 import { text } from "./text.ts";
 
 export type PanelView = { readonly eyebrow: string; readonly content: ReactNode; readonly onClose: () => void };
 export type ToastSlot = { readonly view: ToastView; readonly onDismiss: (id: number) => void };
-
-// "deep" lets child elements drag the window too; buttons do not.
-const DRAG = { "data-tauri-drag-region": "deep" } as const;
 
 type Props = {
   readonly port: Port;
@@ -73,9 +70,9 @@ export function Shell({ port, nav, sidebar, onSidebar, view, now, panel, toast, 
   );
 }
 
-// WAI-ARIA window splitter pattern.
 const KEY_STEP = 8;
 
+// WAI-ARIA window splitter pattern.
 function ResizeHandle({ sidebar, live, setLive, commit }: { sidebar: Sidebar; live: Sidebar | null; setLive: (s: Sidebar | null) => void; commit: (s: Sidebar) => void }) {
   const dragging = useRef(false);
   const current = live ?? sidebar;
@@ -125,7 +122,7 @@ function ResizeHandle({ sidebar, live, setLive, commit }: { sidebar: Sidebar; li
 function WindowControls({ port }: { port: Port }) {
   // Out of the Tab order like the native Windows title bar; Alt+F4 and Win+arrow keys still work.
   const button = (label: string, glyph: string, act: () => Promise<void>, extra = "") => (
-    <button type="button" className={`window-button${extra}`} tabIndex={-1} aria-label={label} title={label} onClick={() => void act().catch(() => undefined)}>
+    <button type="button" className={`window-button${extra}`} tabIndex={-1} aria-label={label} title={label} onClick={() => void act()}>
       <span aria-hidden="true">{glyph}</span>
     </button>
   );

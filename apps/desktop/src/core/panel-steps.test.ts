@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseManifest, type Content } from "./manifest.ts";
 import { markShare, panelSteps } from "./panel-steps.ts";
 import { deriveShares, fileKeyOf, shareIdOf, type Account, type AccountId, type BrandId, type ContentId, type Share } from "./shares.ts";
+import { testContent } from "./test-content.ts";
 import { at, parseDate, parseTime, type LocalDate, type TimeOfDay } from "./time.ts";
 
 const day = parseDate("2026-11-11") as LocalDate;
@@ -10,17 +10,7 @@ const T = (s: string) => parseTime(s) as TimeOfDay;
 const NOW = at(day, T("14:20"));
 const B = "initech" as BrandId;
 
-const content: Content = (() => {
-  const r = parseManifest({
-    schemaVersion: 1, id: "dog", brand: "initech", date: "2026-11-11", language: "en", title: "dog", approval: "approved",
-    files: [{ id: "main", kind: "video", role: "main", path: "main.mp4", width: 1080, height: 1920, durationSec: 38 }],
-    entries: ["x", "tiktok"].map((p) => ({ platform: p, file: "main", text: "text", aiLabel: true })),
-    sources: [{ title: "source", url: "https://example.com", license: "CC0-1.0" }],
-    aiUsage: { voice: true, visuals: false, text: true },
-  });
-  if (!r.ok) throw new Error(JSON.stringify(r.error));
-  return r.content;
-})();
+const content = testContent({ id: "dog", platforms: ["x", "tiktok"], video: true });
 const accounts: Account[] = [{ id: "initech-x" as AccountId, brand: B, network: "x", handle: "@initech", language: "en", times: { x: T("09:00") } }];
 
 function share(platform: "x" | "tiktok", opts: { missing?: boolean; status?: "done" | "skipped" } = {}): Share {

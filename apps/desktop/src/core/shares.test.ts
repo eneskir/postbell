@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseManifest, type Content, type Platform } from "./manifest.ts";
+import type { Language, Platform } from "./manifest.ts";
 import {
   accountFor,
   deriveShares,
@@ -20,6 +20,7 @@ import {
   type Network,
   type ShareRecord,
 } from "./shares.ts";
+import { testContent } from "./test-content.ts";
 import { at, parseDate, parseTime, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 
 const D = (s: string) => parseDate(s) as LocalDate;
@@ -27,17 +28,7 @@ const T = (s: string) => parseTime(s) as TimeOfDay;
 const NOW = (d: string, t: string) => at(D(d), T(t));
 const B = "initech" as BrandId;
 
-function content(id: string, date: string, platforms: readonly string[], language = "en"): Content {
-  const r = parseManifest({
-    schemaVersion: 1, id, brand: "initech", date, language, title: id, approval: "approved",
-    files: [{ id: "main", kind: "image", role: "main", path: "main.png", width: 10, height: 10 }],
-    entries: platforms.map((p) => ({ platform: p, file: "main", text: "text", aiLabel: false })),
-    sources: [{ title: "source", url: "https://example.com", license: "CC0-1.0" }],
-    aiUsage: { voice: false, visuals: false, text: false },
-  });
-  if (!r.ok) throw new Error(JSON.stringify(r.error));
-  return r.content;
-}
+const content = (id: string, date: string, platforms: readonly string[], language: Language = "en") => testContent({ id, date, platforms, language });
 
 const account = (network: Network, times: Record<string, string>, over: Partial<Account> = {}): Account => ({
   id: `initech-${network}` as AccountId,

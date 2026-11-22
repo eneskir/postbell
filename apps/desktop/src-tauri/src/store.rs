@@ -60,11 +60,10 @@ fn save_cut(dir: &Path, text: &str, cut: Cut) -> Result<(), PortErr> {
     if version_of(text) != Some(SUPPORTED_VERSION) {
         return Err(PortErr::new("STORE_WRITE", format!("store to write is not version {SUPPORTED_VERSION}")));
     }
-    if let Ok(Some(old)) = load(dir) {
-        if let Some(v) = version_of(&old) {
-            if v > SUPPORTED_VERSION {
-                return Err(PortErr::new("STORE_NEWER_VERSION", format!("store on disk is version {v}")));
-            }
+    // A store that cannot be read cannot be checked for a newer version, so it is not overwritten.
+    if let Some(v) = load(dir)?.as_deref().and_then(version_of) {
+        if v > SUPPORTED_VERSION {
+            return Err(PortErr::new("STORE_NEWER_VERSION", format!("store on disk is version {v}")));
         }
     }
     let w = |e: std::io::Error| PortErr::new("STORE_WRITE", e);
@@ -147,6 +146,15 @@ mod tests {
         fs::write(path(&d), newer).unwrap();
         assert_eq!(save(&d, V1_B).unwrap_err().code, "STORE_NEWER_VERSION");
         assert_eq!(load(&d).unwrap().as_deref(), Some(newer));
+    }
+
+    #[test]
+    fn unreadable_file_on_disk_is_never_overwritten() {
+        let d = temp_dir("unreadable");
+        let bytes = [b'{', 0xFF, 0xFE, b'}'];
+        fs::write(path(&d), bytes).unwrap();
+        assert_eq!(save(&d, V1_B).unwrap_err().code, "STORE_READ");
+        assert_eq!(fs::read(path(&d)).unwrap(), bytes);
     }
 
     #[test]

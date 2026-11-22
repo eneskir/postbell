@@ -9,8 +9,12 @@ export type LocalDate = string & { readonly __brand: "LocalDate" };
 export const MINUTE = 60_000;
 export const DAY = 24 * 60 * MINUTE;
 
+// HH:MM, 00:00-23:59; the store schema checks saved times with the same pattern.
+export const TIME_PATTERN = "^([01][0-9]|2[0-3]):([0-5][0-9])$";
+const TIME_RE = new RegExp(TIME_PATTERN);
+
 export function parseTime(s: string): TimeOfDay | null {
-  const m = /^([01][0-9]|2[0-3]):([0-5][0-9])$/.exec(s);
+  const m = TIME_RE.exec(s);
   return m ? ((Number(m[1]) * 60 + Number(m[2])) as TimeOfDay) : null;
 }
 

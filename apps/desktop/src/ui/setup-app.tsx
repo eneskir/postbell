@@ -2,11 +2,10 @@ import "./setup.css";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { askOf, errorButtons, isUpdate, type Job, type Phase, type SetupError, type SetupInfo, type SetupPort } from "../core/setup.ts";
 import { logos } from "./assets.gen.ts";
-import { Button, Tag, type ButtonVariant } from "./components.tsx";
+import { Button, DRAG, Tag, type ButtonVariant } from "./components.tsx";
 import { text } from "./text.ts";
 
 const t = text.setup;
-const DRAG = { "data-tauri-drag-region": "deep" } as const;
 
 type ViewButton = { readonly label: string; readonly variant: ButtonVariant; readonly danger?: boolean; readonly act: (() => void) | null };
 type View = {
@@ -37,7 +36,7 @@ export function SetupApp({ port }: { port: SetupPort }) {
   }, [port]);
   useEffect(() => port.onProgress((p) => setProgress(p.done / p.total)), [port]);
 
-  const close = () => void port.close().catch(() => undefined);
+  const close = () => void port.close();
   const run = async (job: "install" | "uninstall", force: boolean) => {
     setProgress(0);
     setPhase({ kind: "busy" });
@@ -58,7 +57,7 @@ export function SetupApp({ port }: { port: SetupPort }) {
   useEffect(() => {
     if (!view || shown.current) return;
     shown.current = true;
-    void port.ready(`setup:${view.name}`).catch(() => undefined);
+    void port.ready(`setup:${view.name}`);
   }, [view, port]);
   useEffect(() => {
     if (phase.kind === "done" || phase.kind === "error") actions.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();

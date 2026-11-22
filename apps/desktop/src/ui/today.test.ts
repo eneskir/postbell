@@ -1,25 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseManifest, type Content } from "../core/manifest.ts";
 import { deriveShares, lateCount, networkOf, shareIdOf, todayGroups, type Account, type AccountId, type BrandId, type ContentId, type Share } from "../core/shares.ts";
-import { at, formatTime, parseDate, parseTime, timeOf, type LocalDate, type TimeOfDay } from "../core/time.ts";
+import { testContent } from "../core/test-content.ts";
+import { at, formatTime, parseDate, parseTime, type LocalDate, type TimeOfDay } from "../core/time.ts";
+import { rowTagOf, rowTimeOf } from "../core/today.ts";
 import { atSuffix, duration, fileSize, possessive, possessiveGenitive, text } from "./text.ts";
 
 const day = parseDate("2026-11-11") as LocalDate;
 const T = (s: string) => parseTime(s) as TimeOfDay;
 const brand = "initech" as BrandId;
 
-function pkg(id: string, title: string, platforms: readonly string[]): Content {
-  const r = parseManifest({
-    schemaVersion: 1, id, brand: "initech", date: "2026-11-11", language: "en", title, approval: "approved",
-    files: [{ id: "main", kind: "video", role: "main", path: "main.mp4", width: 1080, height: 1920, durationSec: 38 }],
-    entries: platforms.map((p) => ({ platform: p, file: "main", text: "metin", aiLabel: true })),
-    sources: [{ title: "kaynak", url: "https://example.com", license: "CC0-1.0" }],
-    aiUsage: { voice: true, visuals: false, text: true },
-  });
-  if (!r.ok) throw new Error(JSON.stringify(r.error));
-  return r.content;
-}
+const pkg = (id: string, title: string, platforms: readonly string[]) => testContent({ id, title, platforms, video: true });
 
 const contents = [
   pkg("dog", "The dog that should not be there", ["x", "instagram-reels"]),
@@ -32,12 +23,14 @@ const accounts: Account[] = Object.entries(times).map(([p, t]) => {
   return { id: `initech-${network}` as AccountId, brand, network, handle: "@initech", language: "en", times: { [p]: T(t) } };
 });
 
-const PLATFORM_NAME: Record<string, string> = { x: "X", "instagram-reels": "Instagram Reels", tiktok: "TikTok", "youtube-shorts": "YouTube Shorts", pinterest: "Pinterest" };
+// The row's texts from the same sources the list uses: the format names, rowTagOf and the undo button of a done share.
+const TAG_TEXT = { "file-missing": text.today.fileMissing, due: text.today.due, skipped: text.today.skipped };
 
 function row(s: Share): string {
-  const time = s.status.kind === "done" || s.status.kind === "skipped" ? timeOf(s.status.at) : s.plannedAt.kind === "at" ? timeOf(s.plannedAt.at) : null;
-  const tag = s.status.kind === "late" ? text.delay(s.status.lateByMin) : s.status.kind === "due" ? text.today.due : s.status.kind === "done" ? text.today.undo : "";
-  return [time === null ? "--:--" : formatTime(time), PLATFORM_NAME[s.platform], s.content.title, tag].join(" | ");
+  const time = rowTimeOf(s);
+  const t = rowTagOf(s);
+  const tag = t === null ? (s.status.kind === "done" ? text.today.undo : "") : t.kind === "late" ? text.delay(t.lateByMin) : TAG_TEXT[t.kind];
+  return [time === null ? text.today.noTime : formatTime(time), text.formats[s.platform], s.content.title, tag].join(" | ");
 }
 
 test("sample day: same groups, same order, same texts as the design", () => {

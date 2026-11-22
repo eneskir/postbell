@@ -2,7 +2,7 @@ use crate::log::{iso, now_ms, Log};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -37,11 +37,6 @@ pub struct Texts {
 pub struct Plan {
     pub alarms: Vec<Alarm>,
     pub texts: Texts,
-}
-
-/// Errors name only the kind and position: serde's own message can quote values, which must not reach the log.
-pub fn parse_plan(text: &str) -> Result<Plan, String> {
-    serde_json::from_str(text).map_err(|e| format!("{:?}, line {}, column {}", e.classify(), e.line(), e.column()))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -109,18 +104,13 @@ fn toast_of(batch: &[&Alarm], texts: &Texts) -> Option<Toast> {
     Some(Toast { ids, at, title: texts.many.replace("{n}", &unique.len().to_string()), body, action: texts.open_home.clone(), target: None })
 }
 
-pub fn toast_xml(t: &Toast) -> String {
+/// `action` is the label of the one button; a toast without it has no button.
+pub fn toast_xml(title: &str, body: &str, action: Option<&str>) -> String {
+    let actions = action
+        .map(|a| format!("<actions><action content=\"{}\" arguments=\"open\" activationType=\"foreground\"/></actions>", xml(a)))
+        .unwrap_or_default();
     format!(
-        "<toast activationType=\"foreground\" launch=\"open\"><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual><actions><action content=\"{}\" arguments=\"open\" activationType=\"foreground\"/></actions></toast>",
-        xml(&t.title),
-        xml(&t.body),
-        xml(&t.action)
-    )
-}
-
-pub fn notice_xml(title: &str, body: &str) -> String {
-    format!(
-        "<toast activationType=\"foreground\" launch=\"open\"><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual></toast>",
+        "<toast activationType=\"foreground\" launch=\"open\"><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual>{actions}</toast>",
         xml(title),
         xml(body)
     )
@@ -199,7 +189,9 @@ fn show(app: &AppHandle, log: &Log, t: &Toast) {
 
 pub fn open(app: &AppHandle, target: Option<Target>) {
     crate::show_main(app);
-    let _ = app.emit_to("main", "alarm-open", target);
+    if let (Err(e), Some(log)) = (app.emit_to("main", "alarm-open", target), app.try_state::<Arc<Log>>()) {
+        log.line(&format!("ALARM_OPEN: {e}"));
+    }
 }
 
 /// Call once at the start of any thread that shows toasts.
@@ -231,7 +223,7 @@ fn platform_show(_app: &AppHandle, _t: &Toast) -> Result<(), String> {
 
 #[cfg(windows)]
 mod winrt {
-    use super::{notice_xml, open, toast_xml, Toast};
+    use super::{open, toast_xml, Toast};
     use std::collections::VecDeque;
     use std::sync::Mutex;
     use tauri::AppHandle;
@@ -252,12 +244,12 @@ mod winrt {
 
     pub fn show(app: &AppHandle, t: &Toast) -> windows::core::Result<()> {
         let (handle, target) = (app.clone(), t.target.clone());
-        show_xml(app, &toast_xml(t), move || open(&handle, target.clone()))
+        show_xml(app, &toast_xml(&t.title, &t.body, Some(&t.action)), move || open(&handle, target.clone()))
     }
 
     pub fn notice(app: &AppHandle, title: &str, body: &str) -> windows::core::Result<()> {
         let handle = app.clone();
-        show_xml(app, &notice_xml(title, body), move || crate::show_main(&handle))
+        show_xml(app, &toast_xml(title, body, None), move || crate::show_main(&handle))
     }
 
     /// Windows shows toasts only for an app id carried by a Start menu shortcut; without one it may accept them silently.
@@ -328,17 +320,17 @@ mod tests {
         let bad = r#"{"alarms":[],"texts":{"open":"\ud83d","openHome":"","many":""}}"#;
         assert!(serde_json::from_str::<Plan>(bad).is_err());
         let paired = r#"{"alarms":[],"texts":{"open":"🐶","openHome":"","many":""}}"#;
-        assert_eq!(parse_plan(paired).unwrap().texts.open, "🐶");
+        assert_eq!(crate::parse_json::<Plan>(paired).unwrap().texts.open, "🐶");
     }
 
     #[test]
     fn rejected_plan_names_kind_and_place_but_no_content() {
         let bad = r#"{"alarms":[],"texts":{"open":"\ud83d secret","openHome":"","many":""}}"#;
-        let e = parse_plan(bad).unwrap_err();
+        let e = crate::parse_json::<Plan>(bad).unwrap_err();
         assert!(e.starts_with("Syntax, line 1, column "), "{e}");
         assert!(!e.contains("secret"), "{e}");
         let wrong = r#"{"alarms":[{"id":"a","at":"secret title","title":"","body":"","brand":"","label":"","target":{"brand":"","share":""}}],"texts":{"open":"","openHome":"","many":""}}"#;
-        let e = parse_plan(wrong).unwrap_err();
+        let e = crate::parse_json::<Plan>(wrong).unwrap_err();
         assert!(e.starts_with("Data, line 1"), "{e}");
         assert!(!e.contains("secret"), "{e}");
         assert!(serde_json::from_str::<Plan>(wrong).unwrap_err().to_string().contains("secret"), "serde's own message quotes the value");
@@ -431,15 +423,7 @@ mod tests {
 
     #[test]
     fn xml_escapes_text() {
-        let t = Toast {
-            ids: vec![],
-            at: 0,
-            title: "Saati geldi: @a · X".into(),
-            body: "Tom & Jerry <\"'>".into(),
-            action: "Aç".into(),
-            target: None,
-        };
-        let x = toast_xml(&t);
+        let x = toast_xml("Saati geldi: @a · X", "Tom & Jerry <\"'>", Some("Aç"));
         assert!(x.contains("<text>Saati geldi: @a · X</text><text>Tom &amp; Jerry &lt;&quot;&apos;&gt;</text>"));
         assert!(x.contains("content=\"Aç\""));
     }
@@ -447,22 +431,14 @@ mod tests {
     #[test]
     fn xml_drops_characters_xml_forbids() {
         // An invisible control character must not drop the toast; tab, newlines and other planes stay.
-        let t = Toast {
-            ids: vec![],
-            at: 0,
-            title: "a\u{0}b\u{1}c\u{8}d\u{B}e\u{C}f\u{1F}g\u{FFFE}h\u{FFFF}i".into(),
-            body: "1\t2\n3\r4 \u{D7FF}\u{E000}\u{FFFD}🐶".into(),
-            action: "Aç\u{7}".into(),
-            target: None,
-        };
-        let x = toast_xml(&t);
+        let x = toast_xml("a\u{0}b\u{1}c\u{8}d\u{B}e\u{C}f\u{1F}g\u{FFFE}h\u{FFFF}i", "1\t2\n3\r4 \u{D7FF}\u{E000}\u{FFFD}🐶", Some("Aç\u{7}"));
         assert!(x.contains("<text>abcdefghi</text><text>1\t2\n3\r4 \u{D7FF}\u{E000}\u{FFFD}🐶</text>"), "{x}");
         assert!(x.contains("content=\"Aç\""));
     }
 
     #[test]
     fn notice_has_no_button() {
-        let x = notice_xml("Postbell arka planda çalışıyor", "Kapatmak için simgedeki menüden Çık'ı seç.");
+        let x = toast_xml("Postbell arka planda çalışıyor", "Kapatmak için simgedeki menüden Çık'ı seç.", None);
         assert!(x.contains("<text>Postbell arka planda çalışıyor</text><text>Kapatmak için simgedeki menüden Çık&apos;ı seç.</text>"), "{x}");
         assert!(!x.contains("<actions>"));
     }

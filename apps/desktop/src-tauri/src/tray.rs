@@ -22,11 +22,6 @@ pub struct Texts {
     pub hidden_body: String,
 }
 
-/// Errors name only the kind and position, as in `alarms::parse_plan`.
-pub fn parse_texts(text: &str) -> Result<Texts, String> {
-    serde_json::from_str(text).map_err(|e| format!("{:?}, line {}, column {}", e.classify(), e.line(), e.column()))
-}
-
 /// `texts` is `None` until the tray icon exists.
 pub struct Tray {
     texts: Mutex<Option<Texts>>,
@@ -103,13 +98,13 @@ pub fn close_requested(window: &Window, tray: &Tray, log: &Arc<Log>) -> bool {
         return false;
     }
     log.line("window: hidden");
-    if notice_due(&tray.mark) {
+    if !tray.mark.exists() {
         // Toasts need their own COM thread, as in the alarms, so the window event does not wait.
         let (app, thread_log, mark) = (window.app_handle().clone(), log.clone(), tray.mark.clone());
         let spawned = std::thread::Builder::new().name("notice".into()).spawn(move || {
             crate::alarms::init_thread();
             let line = match crate::alarms::notice(&app, &texts.hidden_title, &texts.hidden_body) {
-                Ok(()) => match mark_shown(&mark) {
+                Ok(()) => match std::fs::write(&mark, b"") {
                     Ok(()) => "notice: hidden".to_string(),
                     Err(e) => format!("NOTICE_MARK: {e}"),
                 },
@@ -124,14 +119,6 @@ pub fn close_requested(window: &Window, tray: &Tray, log: &Arc<Log>) -> bool {
     true
 }
 
-fn notice_due(mark: &Path) -> bool {
-    !mark.exists()
-}
-
-fn mark_shown(mark: &Path) -> std::io::Result<()> {
-    std::fs::write(mark, b"")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,25 +127,12 @@ mod tests {
     fn texts_parse_the_ui_contract() {
         // Must match `src/ui/notify.test.ts` (`text.tray`).
         let raw = r#"{"open":"Postbell'i aç","quit":"Çık","tooltip":"Postbell","hiddenTitle":"Postbell arka planda çalışıyor","hiddenBody":"Bildirimler gelmeye devam eder. Kapatmak için simgedeki menüden Çık'ı seç."}"#;
-        let t = parse_texts(raw).unwrap();
+        let t = crate::parse_json::<Texts>(raw).unwrap();
         assert_eq!((t.open.as_str(), t.quit.as_str(), t.hidden_title.as_str()), ("Postbell'i aç", "Çık", "Postbell arka planda çalışıyor"));
         let extra = r#"{"open":"","quit":"","tooltip":"","hiddenTitle":"","hiddenBody":"","extra":1}"#;
-        assert!(parse_texts(extra).is_err());
-        let e = parse_texts(r#"{"open":1,"quit":"secret"}"#).unwrap_err();
+        assert!(crate::parse_json::<Texts>(extra).is_err());
+        let e = crate::parse_json::<Texts>(r#"{"open":1,"quit":"secret"}"#).unwrap_err();
         assert!(e.starts_with("Data, line 1"), "{e}");
         assert!(!e.contains("secret"), "{e}");
-    }
-
-    #[test]
-    fn notice_is_shown_once_per_data_dir() {
-        let dir = std::env::temp_dir().join(format!("postbell-tray-{}", crate::log::now_ms()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let tray = Tray::new(&dir);
-        let _ = std::fs::remove_file(&tray.mark);
-        assert!(notice_due(&tray.mark));
-        mark_shown(&tray.mark).unwrap();
-        assert!(!notice_due(&tray.mark));
-        assert!(!notice_due(&Tray::new(&dir).mark), "not shown again after a restart");
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -14,7 +14,7 @@ import { brandStatesOf, loadBrandPackages, readingOf, sharesOf, type BrandPackag
 import { BrandNewPage } from "./brand-new.tsx";
 import { BrandSettingsPage } from "./brand-settings.tsx";
 import { instantOf, localNow, useNow } from "./clock.ts";
-import { Notice, SkeletonList, type Action, type ToastView } from "./components.tsx";
+import { focusBack, Notice, SkeletonList, type Action, type ToastView } from "./components.tsx";
 import { ConfirmDialog } from "./confirm-dialog.tsx";
 import { loadDump, type Dump, type ImageProbe } from "./dev-dump.ts";
 import { HomePage } from "./home-page.tsx";
@@ -96,13 +96,14 @@ export function App({ port }: { port: Port }) {
   }, [port, attempt]);
 
   // The shell shows the window only after the first real frame, which avoids a white flash.
+  // `ready` errors are not shown here: the window may still be hidden, so the shell logs them; the tray icon still opens the window.
   useEffect(() => {
     if (screen.kind === "loading" || readySent) return;
     readySent = true;
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         const rendered = document.getElementById("root")?.innerText ?? "";
-        port.ready(rendered).catch(() => undefined);
+        void port.ready(rendered);
       }),
     );
   }, [screen, port]);
@@ -179,8 +180,7 @@ export function App({ port }: { port: Port }) {
 
   const closePanel = useCallback(() => {
     setPanel({ kind: "closed" });
-    const back = opener.current?.isConnected ? opener.current : document.querySelector<HTMLElement>("main.page");
-    back?.focus();
+    focusBack(opener.current);
   }, []);
 
   const pickRow = useCallback(
@@ -261,9 +261,8 @@ export function App({ port }: { port: Port }) {
     document.querySelector<HTMLElement>("main.page")?.focus();
   };
   const cancelRemove = () => {
-    const back = removing?.back;
     setRemoving(null);
-    (back?.isConnected ? back : document.querySelector<HTMLElement>("main.page"))?.focus();
+    focusBack(removing?.back);
   };
 
   const focusAccount = (id: AccountId) => requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-account="${id}"]`)?.focus());
@@ -296,9 +295,8 @@ export function App({ port }: { port: Port }) {
     if (gone) say(text.accounts.removed(gone.handle));
   };
   const cancelRemoveAccount = () => {
-    const back = removingAccount?.back;
     setRemovingAccount(null);
-    (back?.isConnected ? back : document.querySelector<HTMLElement>("main.page"))?.focus();
+    focusBack(removingAccount?.back);
   };
   const addAccountFor = (s: Share) => {
     const network = networkOf(s.platform);

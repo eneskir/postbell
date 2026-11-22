@@ -190,11 +190,11 @@ function useMenuFocus() {
   };
 }
 
-// Open requests in the wide menu are not stored: Radix reports no close for a value already closed, so tooltips would pop open on collapse.
 const Narrow = createContext(false);
 const TIP_DELAY = 500;
 const TIP_OFFSET = 12;
 
+// Open requests in the wide menu are not stored: Radix reports no close for a value already closed, so tooltips would pop open on collapse.
 function Tip({ label, children }: { label: string; children: ReactElement }) {
   const narrow = useContext(Narrow);
   const [open, setOpen] = useState(false);

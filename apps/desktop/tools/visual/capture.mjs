@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { connect, findPage } from "../cdp.mjs";
 
 const args = process.argv.slice(2);
 const out = args[0];
@@ -25,37 +26,7 @@ const say = (...a) => {
   console.log(l);
 };
 
-let targets = [];
-for (let i = 0; i < 60 && !targets.some((t) => t.type === "page"); i++) {
-  try {
-    targets = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
-  } catch {
-  }
-  await sleep(200);
-}
-const ws = new WebSocket(targets.find((t) => t.type === "page").webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r, { once: true }));
-let seq = 0;
-const pending = new Map();
-ws.addEventListener("message", (e) => {
-  const m = JSON.parse(e.data);
-  if (!m.id || !pending.has(m.id)) return;
-  const p = pending.get(m.id);
-  pending.delete(m.id);
-  if (m.error) p.rej(new Error(JSON.stringify(m.error)));
-  else p.res(m.result);
-});
-const send = (method, params = {}) =>
-  new Promise((res, rej) => {
-    const i = ++seq;
-    pending.set(i, { res, rej });
-    ws.send(JSON.stringify({ id: i, method, params }));
-  });
-const ev = async (expr) => {
-  const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
-  return r.result.value;
-};
+const { ws, send, ev } = await connect(await findPage(PORT, 60));
 
 await send("Page.enable");
 await send("Runtime.enable");

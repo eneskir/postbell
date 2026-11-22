@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { alarmsOf, DEFAULT_NOTIFY, REMINDER_INTERVALS } from "./alarms.ts";
-import { parseManifest, type Content } from "./manifest.ts";
+import type { Content } from "./manifest.ts";
 import { deriveShares, fileKeyOf, shareIdOf, type Account, type AccountId, type BrandId, type ContentId, type ShareRecord } from "./shares.ts";
+import { testContent } from "./test-content.ts";
 import { at, formatLocal, parseDate, parseTime, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 
 const D = (s: string) => parseDate(s) as LocalDate;
@@ -11,17 +12,7 @@ const NOW = (d: string, t: string) => at(D(d), T(t));
 const P = "initech" as BrandId;
 const O = "globex" as BrandId;
 
-function content(brand: BrandId, id: string, date: string, platforms: readonly string[]): Content {
-  const r = parseManifest({
-    schemaVersion: 1, id, brand, date, language: "en", title: id, approval: "approved",
-    files: [{ id: "main", kind: "image", role: "main", path: "main.png", width: 10, height: 10 }],
-    entries: platforms.map((p) => ({ platform: p, file: "main", text: "text", aiLabel: false })),
-    sources: [{ title: "source", url: "https://example.com", license: "CC0-1.0" }],
-    aiUsage: { voice: false, visuals: false, text: false },
-  });
-  if (!r.ok) throw new Error(JSON.stringify(r.error));
-  return r.content;
-}
+const content = (brand: BrandId, id: string, date: string, platforms: readonly string[]) => testContent({ brand, id, date, platforms });
 
 const accounts = (brand: BrandId): Account[] => [
   { id: `${brand}-x` as AccountId, brand, network: "x", handle: "@a", language: "en", times: { x: T("09:00") } },

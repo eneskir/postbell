@@ -261,6 +261,7 @@ pub fn message_box(text: &str, caption: &str, ask: bool) -> bool {
 /// The paths are the app's own, and Windows paths cannot contain quotes.
 pub fn delete_after_exit(dirs: &[PathBuf], files: &[PathBuf]) {
     if let Some(mut command) = delete_command(dirs, files) {
+        // Runs as the process exits, with no log or window left to report to; a leftover in the temp folder does no harm.
         let _ = command.spawn();
     }
 }

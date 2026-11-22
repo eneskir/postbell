@@ -17,7 +17,7 @@ Postbell is a Windows desktop app (Tauri 2, TypeScript, React) that gets content
 ## Checks
 
 - Before every PR → `npm run check` in `apps/desktop` (types, layer rule, generated files, style rule, tests, license notices, old name, Rust tests) and `python3 tools/secret_scan.py` (secrets, credential files, personal data, local paths), with its tests and the title check's in `python3 -m unittest discover -s tools`.
-- PR title → `TITLE="fix: ..." python3 tools/check_pr_title.py`: Conventional Commits, 100 characters at most. The Check workflow runs all of these on every PR; the PR title workflow reruns the title check whenever the title is edited.
+- PR title → `TITLE="fix: ..." python3 tools/check_pr_title.py`: Conventional Commits, 100 characters at most. The Check workflow runs the other checks on every PR; the PR title workflow runs the title check when a PR opens, gets new commits or has its title edited.
 - Interface without the Rust shell → `npm run dev`; it runs on a fake shell with the sample packages in `contracts/fixtures`.
 
 ## Rules

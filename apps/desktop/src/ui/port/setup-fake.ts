@@ -16,7 +16,7 @@ async function work(total: number): Promise<SetupResult> {
     listeners.forEach((f) => f({ done, total }));
   }
   const code = q.get("error");
-  if (code && !(code === "SETUP_APP_RUNNING" && forced)) return { ok: false, error: { code, detail: "sahte kabuk" } };
+  if (code && !(code === "SETUP_APP_RUNNING" && forced)) return { ok: false, error: { code, detail: "fake shell" } };
   return { ok: true };
 }
 
@@ -35,7 +35,7 @@ export const setupFakePort: SetupPort = {
     return { ok: true };
   },
   async openApp() {
-    return params().get("open") === "error" ? { ok: false, error: { code: "SETUP_OPEN_FAILED", detail: "sahte kabuk" } } : { ok: true };
+    return params().get("open") === "error" ? { ok: false, error: { code: "SETUP_OPEN_FAILED", detail: "fake shell" } } : { ok: true };
   },
   onProgress(f) {
     listeners.add(f);

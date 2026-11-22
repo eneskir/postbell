@@ -94,7 +94,6 @@ test("settings: only changed fields are checked (an old clash in a hand-edited s
 });
 
 test("remove: the brand, its group slot, accounts, share records and open state go; the rest stays", () => {
-  const at = base.records.length;
   const s: StoreFile = {
     ...base,
     accounts: [
@@ -108,6 +107,7 @@ test("remove: the brand, its group slot, accounts, share records and open state 
     ],
     sidebar: { ...base.sidebar, openBrands: [b("initech"), b("igdir")] },
   };
+  const before = structuredClone(s);
   const igdirGone = removeBrand(s, b("igdir"));
   assert.deepEqual(igdirGone.groups, [{ id: "musteri-a", name: "Müşteri A", open: true, brands: [] }]);
   const r = removeBrand(s, b("initech"));
@@ -116,6 +116,6 @@ test("remove: the brand, its group slot, accounts, share records and open state 
   assert.deepEqual(r.records.map((x) => x.share), ["initech-2/a/x", "igdir/a/x"]);
   assert.deepEqual(r.sidebar.openBrands, ["igdir"]);
   assert.equal(removeBrand(s, b("missing")), s);
-  assert.equal(at, 0);
+  assert.deepEqual(s, before);
   assert.equal(parseStoreText(serializeStore(r)).kind, "ready");
 });

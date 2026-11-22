@@ -1,4 +1,5 @@
 //! Serves files under registered brand folders to the webview; on Windows the URL is `http://postbell-file.localhost/<encoded path>`.
+use crate::log::Log;
 use crate::packages::Registry;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -93,7 +94,8 @@ fn status(code: StatusCode) -> Response<Vec<u8>> {
     Response::builder().status(code).body(Vec::new()).unwrap_or_default()
 }
 
-pub fn respond(path: Result<PathBuf, StatusCode>, method: &Method, range_header: Option<&str>) -> Response<Vec<u8>> {
+/// A read error is logged without the path, which names the user's folders.
+pub fn respond(path: Result<PathBuf, StatusCode>, method: &Method, range_header: Option<&str>, log: &Log) -> Response<Vec<u8>> {
     if method != Method::GET && method != Method::HEAD {
         return status(StatusCode::METHOD_NOT_ALLOWED);
     }
@@ -103,7 +105,10 @@ pub fn respond(path: Result<PathBuf, StatusCode>, method: &Method, range_header:
     };
     match serve(&path, method == Method::HEAD, range_header) {
         Ok(r) => r,
-        Err(_) => status(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            log.line(&format!("MEDIA_READ: {e}"));
+            status(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -166,35 +171,49 @@ mod tests {
     #[test]
     fn serves_registered_file_in_ranges() {
         let (d, r) = tree("range");
+        let log = Log::new(&d);
         let p = resolve(&r, &uri(&d.join("brand").join("package").join("main.mp4"))).unwrap();
-        let full = respond(Ok(p.clone()), &Method::GET, None);
+        let full = respond(Ok(p.clone()), &Method::GET, None, &log);
         assert_eq!((full.status(), full.body().as_slice()), (StatusCode::OK, b"0123456789".as_slice()));
         assert_eq!(full.headers()[header::CONTENT_TYPE], "video/mp4");
-        let part = respond(Ok(p.clone()), &Method::GET, Some("bytes=2-5"));
+        let part = respond(Ok(p.clone()), &Method::GET, Some("bytes=2-5"), &log);
         assert_eq!((part.status(), part.body().as_slice()), (StatusCode::PARTIAL_CONTENT, b"2345".as_slice()));
         assert_eq!(part.headers()[header::CONTENT_RANGE], "bytes 2-5/10");
-        let open = respond(Ok(p.clone()), &Method::GET, Some("bytes=7-"));
+        let open = respond(Ok(p.clone()), &Method::GET, Some("bytes=7-"), &log);
         assert_eq!(open.body().as_slice(), b"789");
-        let tail = respond(Ok(p.clone()), &Method::GET, Some("bytes=-3"));
+        let tail = respond(Ok(p.clone()), &Method::GET, Some("bytes=-3"), &log);
         assert_eq!(tail.headers()[header::CONTENT_RANGE], "bytes 7-9/10");
-        let head = respond(Ok(p.clone()), &Method::HEAD, Some("bytes=0-0"));
+        let head = respond(Ok(p.clone()), &Method::HEAD, Some("bytes=0-0"), &log);
         assert_eq!((head.status(), head.body().len()), (StatusCode::PARTIAL_CONTENT, 0));
         assert_eq!(head.headers()[header::CONTENT_RANGE], "bytes 0-0/10");
-        assert_eq!(respond(Ok(p.clone()), &Method::GET, Some("bytes=10-")).status(), StatusCode::RANGE_NOT_SATISFIABLE);
-        assert_eq!(respond(Ok(p), &Method::POST, None).status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(respond(Ok(p.clone()), &Method::GET, Some("bytes=10-"), &log).status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(respond(Ok(p), &Method::POST, None, &log).status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[test]
     fn a_file_too_big_to_send_whole_is_only_sent_in_ranges() {
         let (d, _) = tree("big");
+        let log = Log::new(&d);
         let big = d.join("big.png");
         // set_len extends without writing, so the test does not fill the disk.
         File::create(&big).unwrap().set_len(WHOLE_MAX + 1).unwrap();
-        let r = respond(Ok(big.clone()), &Method::GET, None);
+        let r = respond(Ok(big.clone()), &Method::GET, None, &log);
         assert_eq!((r.status(), r.body().len()), (StatusCode::PAYLOAD_TOO_LARGE, 0));
-        assert_eq!(respond(Ok(big.clone()), &Method::HEAD, None).status(), StatusCode::PAYLOAD_TOO_LARGE);
-        let r = respond(Ok(big), &Method::GET, Some("bytes=0-"));
+        assert_eq!(respond(Ok(big.clone()), &Method::HEAD, None, &log).status(), StatusCode::PAYLOAD_TOO_LARGE);
+        let r = respond(Ok(big), &Method::GET, Some("bytes=0-"), &log);
         assert_eq!((r.status(), r.body().len() as u64), (StatusCode::PARTIAL_CONTENT, CHUNK));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_read_error_is_a_500_with_a_log_line() {
+        let (d, _) = tree("unreadable");
+        let log = Log::new(&d);
+        // A folder passes for a file here: opening or reading it fails on every system.
+        let r = respond(Ok(d.join("brand")), &Method::GET, None, &log);
+        assert_eq!((r.status(), r.body().len()), (StatusCode::INTERNAL_SERVER_ERROR, 0));
+        let text = fs::read_to_string(d.join("logs").join("postbell.log")).unwrap();
+        assert!(text.contains(" MEDIA_READ: ") && !text.contains("brand"), "{text}");
         let _ = fs::remove_dir_all(&d);
     }
 

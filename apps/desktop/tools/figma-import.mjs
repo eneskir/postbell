@@ -2,18 +2,12 @@
 import { readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ASSET_GROUPS } from "./tokens.mjs";
 
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-export const GROUPS = [
-  { prefix: "icon/nav/", dir: "nav" },
-  { prefix: "icon/brand/", dir: "brand" },
-  { prefix: "illustration/empty/", dir: "empty" },
-  { prefix: "logo/postbell/", dir: "logo" },
-];
-
 export function assetPath(figmaName) {
-  const g = GROUPS.find((x) => figmaName.startsWith(x.prefix));
+  const g = ASSET_GROUPS.find((x) => figmaName.startsWith(x.prefix));
   if (!g) throw new Error(`FIGMA_NAME_UNKNOWN: ${figmaName}`);
   const base = figmaName.slice(g.prefix.length);
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(base)) throw new Error(`FIGMA_NAME_INVALID: ${figmaName}`);
@@ -86,7 +80,7 @@ function main(files) {
     writeAtomic(join(APP, "src", "ui", "assets", dir, file), svg + "\n");
   }
   let removed = 0;
-  for (const { dir } of GROUPS) {
+  for (const { dir } of ASSET_GROUPS) {
     const d = join(APP, "src", "ui", "assets", dir);
     if (!existsSync(d)) continue;
     for (const f of readdirSync(d)) if (f.endsWith(".svg") && !wanted.get(dir)?.has(f)) { rmSync(join(d, f)); removed++; }
