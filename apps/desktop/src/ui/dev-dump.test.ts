@@ -32,6 +32,11 @@ function stubPort(text: string | null, packages: Record<string, PackageDir[]> = 
       copy: async () => ({ ok: true, value: undefined }),
       remove: async () => ({ ok: true, value: undefined }),
     },
+    backup: {
+      save: async () => ({ ok: true, value: null }),
+      pick: async () => ({ ok: true, value: null }),
+      restore: async () => ({ ok: false, error: { code: "backup-not-picked", detail: "" } }),
+    },
     store: {
       load: async () => ({ ok: true, value: { path: "C:/data/store.json", text } }),
       save: async (s) => (saved.push(s), { ok: true, value: undefined }),

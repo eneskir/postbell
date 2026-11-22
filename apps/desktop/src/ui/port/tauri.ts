@@ -1,6 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { parseAppInfo } from "../../core/app-info.ts";
+import { parseBackupSaved, parseRestored } from "../../core/backup.ts";
 import type { PackageDir, PackageFile } from "../../core/packages.ts";
 import { parseAlarmTarget, parsePortError, RESTORE_RESULTS, SHARE_OPEN_RESULTS, type Port, type PortResult } from "../../core/port.ts";
 import { serializeStore } from "../../core/store.ts";
@@ -105,6 +106,25 @@ export const tauriPort: Port = {
     },
     copy: (account) => call<void>("vault_copy", { account }),
     remove: (account) => call<void>("vault_delete", { account }),
+  },
+  backup: {
+    async save(accounts, passphrase, today) {
+      const r = await call<unknown>("vault_backup", { accounts, passphrase, today });
+      if (!r.ok || r.value === null) return r as PortResult<null>;
+      const saved = parseBackupSaved(r.value);
+      return saved ? { ok: true, value: saved } : { ok: false, error: { code: "shell-unavailable", detail: "BACKUP_SAVED_SHAPE" } };
+    },
+    async pick() {
+      const r = await call<unknown>("backup_pick");
+      if (!r.ok) return r;
+      return r.value === null || typeof r.value === "string" ? { ok: true, value: r.value } : { ok: false, error: { code: "shell-unavailable", detail: "BACKUP_PICK_SHAPE" } };
+    },
+    async restore(passphrase, accounts) {
+      const r = await call<unknown>("vault_restore", { passphrase, accounts });
+      if (!r.ok) return r;
+      const done = parseRestored(r.value);
+      return done ? { ok: true, value: done } : { ok: false, error: { code: "shell-unavailable", detail: "RESTORED_SHAPE" } };
+    },
   },
   store: {
     async load() {
