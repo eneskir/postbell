@@ -77,7 +77,7 @@ export async function loadDump(port: Port, now: LocalMs, addRecord: boolean, pro
     rejected: p.rejected.length,
     readMs,
     backup,
-    outsideRead: outside.ok ? "okundu" : outside.error.code,
+    outsideRead: outside.ok ? "read" : outside.error.code,
     preview,
     previewOutside,
     errors,

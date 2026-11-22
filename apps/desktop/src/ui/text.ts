@@ -102,11 +102,6 @@ const NETWORK_NAMES = {
   pinterest: ["Pinterest", "te"],
 } satisfies Record<Network, readonly [string, string]>;
 const networkName = (p: Platform) => NETWORK_NAMES[networkOf(p)][0];
-const networkAt = (p: Platform) => {
-  const [name, at] = NETWORK_NAMES[networkOf(p)];
-  return `${name}'${at}`;
-};
-
 const networkAtOf = (n: Network) => `${NETWORK_NAMES[n][0]}'${NETWORK_NAMES[n][1]}`;
 
 const LANGUAGE_NAMES = { en: "İngilizce", tr: "Türkçe" } satisfies Record<Language, string>;
@@ -343,8 +338,8 @@ export const text = {
     steps: { prepare: "1 · Hazırla", share: "2 · Paylaş", mark: "3 · İşaretle" },
     copy: "Metni kopyala",
     reveal: "Dosyayı göster",
-    open: (handle: string, platform: Platform) => `${handle} olarak ${networkAt(platform)} aç`,
-    accountCheck: (handle: string, platform: Platform) => `${networkAt(platform)} açık hesap ${handle} mu, bir bak.`,
+    open: (handle: string, platform: Platform) => `${handle} olarak ${networkAtOf(networkOf(platform))} aç`,
+    accountCheck: (handle: string, platform: Platform) => `${networkAtOf(networkOf(platform))} açık hesap ${handle} mu, bir bak.`,
     addAccount: (platform: Platform) => `${networkName(platform)} hesabını ekle`,
     noAccount: (platform: Platform) => `Bu markada ${networkName(platform)} hesabı yok.`,
     fileWait: "Dosya bulununca açılır.",

@@ -8,13 +8,15 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const WEIGHTS = { Regular: 400, Medium: 500, "Semi Bold": 600, Bold: 700 };
 const KINDS = { color: "COLOR", space: "FLOAT", radius: "FLOAT", size: "FLOAT" };
 
+// `prefix` starts the Figma component names that tools/figma-import.mjs writes to `dir`; tools/figma/export.js
+// repeats the prefixes, since a plugin script cannot import this file.
 // Nav icons are CSS masks, and a mask file that fails to load leaves the icon invisible; Vite inlines only
 // files under 4 KB, so they are inlined with `?inline` whatever their size.
 export const ASSET_GROUPS = [
-  { dir: "nav", object: "navIcons", type: "IconName", inline: true },
-  { dir: "brand", object: "stickers", type: "StickerName" },
-  { dir: "empty", object: "emptyDrawings", type: "EmptyDrawingName" },
-  { dir: "logo", object: "logos", type: "LogoName" },
+  { prefix: "icon/nav/", dir: "nav", object: "navIcons", type: "IconName", inline: true },
+  { prefix: "icon/brand/", dir: "brand", object: "stickers", type: "StickerName" },
+  { prefix: "illustration/empty/", dir: "empty", object: "emptyDrawings", type: "EmptyDrawingName" },
+  { prefix: "logo/postbell/", dir: "logo", object: "logos", type: "LogoName" },
 ];
 
 export function parseTokenFile(raw) {

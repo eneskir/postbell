@@ -3,6 +3,12 @@ import { emptyDrawings, navIcons, type EmptyDrawingName, type IconName } from ".
 
 export type Action = { readonly label: string; readonly onClick: () => void };
 
+// "deep" lets child elements drag the window too; buttons do not.
+export const DRAG = { "data-tauri-drag-region": "deep" } as const;
+
+// Focus goes back to the control that opened a toast, panel or dialog, or to the page once that control is gone.
+export const focusBack = (to: HTMLElement | null | undefined) => (to?.isConnected ? to : document.querySelector<HTMLElement>("main.page"))?.focus();
+
 export function Icon({ name }: { name: IconName }) {
   return <span className="icon" aria-hidden="true" style={{ maskImage: `url("${navIcons[name]}")` }} />;
 }
@@ -22,12 +28,13 @@ export function Button({ variant, onClick, submit = false, disabled = false, dan
   );
 }
 
-// Pauses while hovered or focused (WCAG 2.2.1). The shell's `aria-live` region stays mounted so the first toast is announced.
 export type ToastView = { readonly id: number; readonly text: string; readonly action?: Action };
 
 export const TOAST_MS = 5000;
 
+// Pauses while hovered or focused (WCAG 2.2.1). The shell's `aria-live` region stays mounted so the first toast is announced.
 export function Toast({ toast, onDismiss }: { toast: ToastView; onDismiss: (id: number) => void }) {
+  const { action } = toast;
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
   const back = useRef<HTMLElement | null>(null);
@@ -37,11 +44,6 @@ export function Toast({ toast, onDismiss }: { toast: ToastView; onDismiss: (id: 
     const t = window.setTimeout(() => onDismiss(toast.id), TOAST_MS);
     return () => window.clearTimeout(t);
   }, [toast.id, paused, onDismiss]);
-  const act = (action: Action) => {
-    const to = back.current;
-    action.onClick();
-    (to?.isConnected ? to : document.querySelector<HTMLElement>("main.page"))?.focus();
-  };
   return (
     <div
       className="toast"
@@ -54,9 +56,17 @@ export function Toast({ toast, onDismiss }: { toast: ToastView; onDismiss: (id: 
       onBlur={(e) => setFocus(e.currentTarget.contains(e.relatedTarget))}
     >
       <span className="toast-text">{toast.text}</span>
-      {toast.action && (
-        <button type="button" className="toast-action" onClick={() => toast.action && act(toast.action)}>
-          {toast.action.label}
+      {action && (
+        <button
+          type="button"
+          className="toast-action"
+          onClick={() => {
+            const to = back.current;
+            action.onClick();
+            focusBack(to);
+          }}
+        >
+          {action.label}
         </button>
       )}
     </div>

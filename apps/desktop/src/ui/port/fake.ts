@@ -85,7 +85,7 @@ export const fakePort: Port = {
   files: {
     url: (folder, path) => fileUrls[`${fixturePath(folder)}${path}`] ?? "",
     async reveal(folder, path) {
-      if (openScenario() === "error") return { ok: false, error: { code: "open-failed", detail: "sahte kabuk: ?open=error" } };
+      if (openScenario() === "error") return { ok: false, error: { code: "open-failed", detail: "fake shell: ?open=error" } };
       if (!(`${fixturePath(folder)}${path}` in fileUrls)) return { ok: false, error: { code: "file-missing", detail: path } };
       return { ok: true, value: undefined };
     },
@@ -95,7 +95,7 @@ export const fakePort: Port = {
       const scenario = openScenario();
       if (scenario === "cancel") return { ok: true, value: "cancelled" };
       if (scenario === "type") return { ok: false, error: { code: "file-type", detail: path.slice(path.lastIndexOf(".")) } };
-      if (scenario === "error") return { ok: false, error: { code: "file-write", detail: "sahte kabuk: ?open=error" } };
+      if (scenario === "error") return { ok: false, error: { code: "file-write", detail: "fake shell: ?open=error" } };
       if (restored.has(key) || new URLSearchParams(location.search).get("packages") !== "no-files") return { ok: true, value: "present" };
       restored.add(key);
       return { ok: true, value: "copied" };
@@ -105,7 +105,7 @@ export const fakePort: Port = {
   links: {
     async openSharePage(platform, text) {
       (window as { postbellOpened?: { platform: string; text: string } }).postbellOpened = { platform, text };
-      if (openScenario() === "error") return { ok: false, error: { code: "open-failed", detail: "sahte kabuk: ?open=error" } };
+      if (openScenario() === "error") return { ok: false, error: { code: "open-failed", detail: "fake shell: ?open=error" } };
       return { ok: true, value: openScenario() === "long" ? "text-dropped" : "opened" };
     },
   },
@@ -114,7 +114,7 @@ export const fakePort: Port = {
     async pickFolder() {
       const scenario = new URLSearchParams(location.search).get("folder");
       if (scenario === "cancel") return { ok: true, value: null };
-      if (scenario === "error") return { ok: false, error: { code: "dialog-failed", detail: "sahte kabukta denendi" } };
+      if (scenario === "error") return { ok: false, error: { code: "dialog-failed", detail: "fake shell: ?folder=error" } };
       return { ok: true, value: fixtureFolders.find((f) => !store.brands.some((b) => b.folder === f)) ?? "fixtures/bos-klasor" };
     },
   },

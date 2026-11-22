@@ -1,10 +1,10 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { parseAppInfo } from "../../core/app-info.ts";
 import type { PackageDir, PackageFile } from "../../core/packages.ts";
 import { parseAlarmTarget, parsePortError, RESTORE_RESULTS, SHARE_OPEN_RESULTS, type Port, type PortResult } from "../../core/port.ts";
 import { serializeStore } from "../../core/store.ts";
+import { subscribe } from "./listen.ts";
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<PortResult<T>> {
   try {
@@ -84,19 +84,7 @@ export const tauriPort: Port = {
   alarms: {
     // Sent as JSON text so the shell parses it and logs a bad plan instead of failing the call.
     set: (plan) => call<void>("alarms_set", { plan: JSON.stringify(plan) }),
-    // Tauri's listen() resolves later; an unsubscribe that comes first runs once it does.
-    onOpen(open) {
-      let stop: (() => void) | null = null;
-      let done = false;
-      void listen<unknown>("alarm-open", (e) => open(parseAlarmTarget(e.payload))).then((unlisten) => {
-        if (done) unlisten();
-        else stop = unlisten;
-      });
-      return () => {
-        done = true;
-        stop?.();
-      };
-    },
+    onOpen: (open) => subscribe("alarm-open", (payload) => open(parseAlarmTarget(payload))),
   },
   tray: {
     set: (texts) => call<void>("tray_set", { texts: JSON.stringify(texts) }),

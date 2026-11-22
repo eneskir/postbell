@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { accountProblems, accountRows, addAccount, cleanHandle, draftFor, removeAccount, setupStepOf, updateAccount, type AccountDraft } from "./accounts.ts";
-import { parseManifest, type Content, type Language } from "./manifest.ts";
+import type { Language } from "./manifest.ts";
 import { deriveShares, shareIdOf, type Account, type AccountId, type BrandId, type ContentId } from "./shares.ts";
 import { emptyStore, parseStoreText, serializeStore, type StoreFile } from "./store.ts";
+import { testContent } from "./test-content.ts";
 import { at, parseDate, parseTime, type LocalDate, type TimeOfDay } from "./time.ts";
 
 const P = "initech" as BrandId;
@@ -77,12 +78,12 @@ test("update: handle and language change, id, network and times stay; no change 
   assert.deepEqual(updateAccount(timed, "missing" as AccountId, { handle: "@a", language: "en" }), { ok: false, problems: [] });
 });
 
-test("no secrets in the store: a backup code field makes it unreadable and does not compile", () => {
+test("no secrets in the store: a backup code field makes it unreadable, does not compile and is never written", () => {
   const text = serializeStore(base).replace('"handle": "@initech"', '"backupCodes": [], "handle": "@initech"');
   assert.deepEqual(parseStoreText(text), { kind: "unreadable", reason: "invalid-shape", path: "accounts[0].backupCodes", rule: "additionalProperties" });
   // @ts-expect-error the account type has no secret fields
   const typed: Account = { id: "a" as AccountId, brand: P, network: "x", handle: "@a", language: "tr", times: {}, backupCodes: [] };
-  assert.ok(typed);
+  assert.doesNotMatch(serializeStore({ ...base, accounts: [typed] }), /backupCodes/);
 });
 
 test("remove: only that account goes, share records stay; an unknown account leaves the store unchanged", () => {
@@ -93,17 +94,7 @@ test("remove: only that account goes, share records stay; an unknown account lea
   assert.equal(removeAccount(base, "missing" as AccountId), base);
 });
 
-function content(brand: BrandId, id: string, language: Language, platforms: readonly string[]): Content {
-  const r = parseManifest({
-    schemaVersion: 1, id, brand, date: "2026-11-12", language, title: id, approval: "approved",
-    files: [{ id: "main", kind: "image", role: "main", path: "main.png", width: 10, height: 10 }],
-    entries: platforms.map((p) => ({ platform: p, file: "main", text: "text", aiLabel: false })),
-    sources: [{ title: "source", url: "https://example.com", license: "CC0-1.0" }],
-    aiUsage: { voice: false, visuals: false, text: false },
-  });
-  if (!r.ok) throw new Error(JSON.stringify(r.error));
-  return r.content;
-}
+const content = (brand: BrandId, id: string, language: Language, platforms: readonly string[]) => testContent({ brand, id, language, platforms, date: "2026-11-12" });
 const NOW = at(parseDate("2026-11-12") as LocalDate, T("10:00"));
 
 test("rows: accounts in network order; a network without accounts gets one row in the first share's language", () => {

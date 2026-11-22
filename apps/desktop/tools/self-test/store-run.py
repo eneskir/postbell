@@ -57,7 +57,7 @@ check("Önizleme | 160 x 90" in d2, "the fixture package image loaded from a pos
 check("Klasör dışı önizleme | not loaded" in d2, "the store file did not load from a postbell-file address")
 
 b = base / "b"; b.mkdir(); (b / "store.json").write_text("{broken", encoding="utf-8")
-say("3. corrupt store; data folder", b)
+say("2. corrupt store; data folder", b)
 r3 = base / "r3.json"; rc = run(["--self-test", str(r3), "--self-test-add-record", "--data-dir", str(b)])
 d3 = rendered(r3); say("  exit", rc, "dump:", d3)
 copies = sorted(x.name for x in b.glob("store.unreadable-*.json"))
@@ -66,7 +66,7 @@ check("Daralt" not in d3, "no collapse button drawn for an unreadable store (its
 check(len(copies) == 1 and (b / copies[0]).read_text(encoding="utf-8") == "{broken", f"copy taken: {copies}")
 
 c = base / "c"; c.mkdir(); newer = '{"version": 2, "future": true}'; (c / "store.json").write_text(newer, encoding="utf-8")
-say("4. store from a newer version; data folder", c)
+say("3. store from a newer version; data folder", c)
 r4 = base / "r4.json"; rc = run(["--self-test", str(r4), "--self-test-add-record", "--data-dir", str(c)])
 d4 = rendered(r4); say("  exit", rc, "dump:", d4)
 check("newer-version" in d4 and (c / "store.json").read_text(encoding="utf-8") == newer, "newer-version state, file unchanged")
@@ -79,7 +79,7 @@ side = {**seed, "brands": [*seed["brands"], {"id": "globex", "name": "Globex", "
                       "times": {"instagram-reels": "09:00", "instagram-post": "12:00"}}],
         "sidebar": {"collapsed": True, "width": 262, "openBrands": ["initech"]}}
 (s / "store.json").write_text(json.dumps(side, indent=2), encoding="utf-8")
-say("5. sidebar state; data folder", s)
+say("4. sidebar state; data folder", s)
 r5 = base / "r5.json"; rc = run(["--self-test", str(r5), "--self-test-add-record", "--data-dir", str(s)])
 d5 = rendered(r5); say("  exit", rc, "dump:", d5)
 check(" MA " in f" {d5} " and "Müşteri A" not in d5, "narrow menu came from the store: the group shows as MA")
@@ -100,7 +100,7 @@ gone = (base / "moved").as_posix()
 miss = {**seed, "brands": [{"id": "moved", "name": "Moved", "sticker": "camera", "folder": gone},
                            {"id": "empty-folder", "name": "Empty", "sticker": "night", "folder": empty_dir.as_posix()}]}
 (m / "store.json").write_text(json.dumps(miss, indent=2), encoding="utf-8")
-say("6. folder states; data folder", m)
+say("5. folder states; data folder", m)
 r6 = base / "r6.json"; rc = run(["--self-test", str(r6), "--data-dir", str(m)])
 d6 = rendered(r6); say("  exit", rc, "dump:", d6)
 check(f"folder-missing: folder missing: {gone}" in d6, "a folder missing on disk comes as folder-missing")
@@ -117,7 +117,7 @@ for i in range(500):
     (d / "manifest.json").write_text(json.dumps({**proto, "id": f"bench-{day}-p{i:04d}", "brand": "bench", "date": day}, indent=2), encoding="utf-8")
 q = base / "q"; q.mkdir()
 (q / "store.json").write_text(json.dumps({**seed, "brands": [{"id": "bench", "name": "Bench", "sticker": "camera", "folder": big.as_posix()}]}, indent=2), encoding="utf-8")
-say("7. read time for 500 packages; data folder", q)
+say("6. read time for 500 packages; data folder", q)
 times = []
 for k in range(5):
     r7 = base / f"r7-{k}.json"; run(["--self-test", str(r7), "--data-dir", str(q)])

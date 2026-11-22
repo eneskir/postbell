@@ -240,10 +240,6 @@ pub struct Ctx {
     pub webview_dir: PathBuf,
 }
 
-fn err(code: &'static str, detail: impl std::fmt::Display) -> PortErr {
-    PortErr::new(code, detail)
-}
-
 /// Without `force` it only sends `--quit`, which releases before 0.1.1 do not know; with `force` it kills the process.
 fn close_app(places: &Places, force: bool) -> Result<(), PortErr> {
     let exe = places.exe();
@@ -258,12 +254,12 @@ fn close_app(places: &Places, force: bool) -> Result<(), PortErr> {
     } else if win::file_version(&exe).is_some_and(|v| knows_quit(&v)) {
         ask_quit(&exe);
     } else {
-        return Err(err("SETUP_APP_RUNNING", exe.display()));
+        return Err(PortErr::new("SETUP_APP_RUNNING", exe.display()));
     }
     if wait_gone(&exe, Duration::from_secs(5)) {
         Ok(())
     } else {
-        Err(err("SETUP_APP_RUNNING", exe.display()))
+        Err(PortErr::new("SETUP_APP_RUNNING", exe.display()))
     }
 }
 
@@ -295,15 +291,15 @@ fn wait_gone(exe: &Path, timeout: Duration) -> bool {
 }
 
 fn write_atomic(path: &Path, write: impl FnOnce(&Path) -> std::io::Result<()>) -> Result<(), PortErr> {
-    let dir = path.parent().ok_or_else(|| err("SETUP_WRITE_FAILED", path.display()))?;
-    std::fs::create_dir_all(dir).map_err(|e| err("SETUP_WRITE_FAILED", format!("{}: {e}", dir.display())))?;
+    let dir = path.parent().ok_or_else(|| PortErr::new("SETUP_WRITE_FAILED", path.display()))?;
+    std::fs::create_dir_all(dir).map_err(|e| PortErr::new("SETUP_WRITE_FAILED", format!("{}: {e}", dir.display())))?;
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".new");
     let tmp = PathBuf::from(tmp);
-    write(&tmp).map_err(|e| err("SETUP_WRITE_FAILED", format!("{}: {e}", tmp.display())))?;
+    write(&tmp).map_err(|e| PortErr::new("SETUP_WRITE_FAILED", format!("{}: {e}", tmp.display())))?;
     std::fs::rename(&tmp, path).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
-        err("SETUP_WRITE_FAILED", format!("{}: {e}", path.display()))
+        PortErr::new("SETUP_WRITE_FAILED", format!("{}: {e}", path.display()))
     })
 }
 
@@ -316,8 +312,8 @@ fn write_exe(src: &Path, places: &Places) -> Result<(), PortErr> {
 }
 
 fn link(ctx: &Ctx, dir: &Path) -> Result<(), PortErr> {
-    std::fs::create_dir_all(dir).map_err(|e| err("SETUP_SHORTCUT_FAILED", format!("{}: {e}", dir.display())))?;
-    win::create_shortcut(&dir.join(LINK), &ctx.places.exe(), &ctx.places.install_dir, &ctx.identifier).map_err(|e| err("SETUP_SHORTCUT_FAILED", e))
+    std::fs::create_dir_all(dir).map_err(|e| PortErr::new("SETUP_SHORTCUT_FAILED", format!("{}: {e}", dir.display())))?;
+    win::create_shortcut(&dir.join(LINK), &ctx.places.exe(), &ctx.places.install_dir, &ctx.identifier).map_err(|e| PortErr::new("SETUP_SHORTCUT_FAILED", e))
 }
 
 fn is_our_link(lnk: &Path, exe: &Path) -> bool {
@@ -328,36 +324,37 @@ fn remove_link_if_ours(lnk: &Path, exe: &Path) -> Result<(), PortErr> {
     if !is_our_link(lnk, exe) {
         return Ok(());
     }
-    std::fs::remove_file(lnk).map_err(|e| err("UNINSTALL_SHORTCUT_FAILED", format!("{}: {e}", lnk.display())))
+    std::fs::remove_file(lnk).map_err(|e| PortErr::new("UNINSTALL_SHORTCUT_FAILED", format!("{}: {e}", lnk.display())))
 }
 
-/// Moves without overwriting and removes `from` only if empty; retries for 3 s because WebView2 helpers may still hold the folder.
+/// Retries a failing step for 3 s, because WebView2 helpers may still hold the folder after the app has closed.
+fn retry(mut step: impl FnMut() -> std::io::Result<()>) -> std::io::Result<()> {
+    let until = Instant::now() + Duration::from_secs(3);
+    loop {
+        match step() {
+            Err(_) if Instant::now() < until => std::thread::sleep(Duration::from_millis(200)),
+            done => return done,
+        }
+    }
+}
+
+/// Moves without overwriting and removes `from` only if empty.
 fn move_legacy(from: &Path, to: &Path) -> Result<(), PortErr> {
-    let fail = |e: std::io::Error, p: &Path| err("SETUP_DATA_MOVE_FAILED", format!("{}: {e}", p.display()));
+    let fail = |e: std::io::Error, p: &Path| PortErr::new("SETUP_DATA_MOVE_FAILED", format!("{}: {e}", p.display()));
     if from == to || !from.exists() {
         return Ok(());
     }
-    let retry = |src: &Path, dest: &Path| -> Result<(), PortErr> {
-        let until = Instant::now() + Duration::from_secs(3);
-        loop {
-            match std::fs::rename(src, dest) {
-                Ok(()) => return Ok(()),
-                Err(e) if Instant::now() >= until => return Err(fail(e, src)),
-                Err(_) => std::thread::sleep(Duration::from_millis(200)),
-            }
-        }
-    };
     if !to.exists() {
         if let Some(parent) = to.parent() {
             std::fs::create_dir_all(parent).map_err(|e| fail(e, parent))?;
         }
-        return retry(from, to);
+        return retry(|| std::fs::rename(from, to)).map_err(|e| fail(e, from));
     }
     for entry in std::fs::read_dir(from).map_err(|e| fail(e, from))? {
         let entry = entry.map_err(|e| fail(e, from))?;
-        let dest = to.join(entry.file_name());
+        let (src, dest) = (entry.path(), to.join(entry.file_name()));
         if !dest.exists() {
-            retry(&entry.path(), &dest)?;
+            retry(|| std::fs::rename(&src, &dest)).map_err(|e| fail(e, &src))?;
         }
     }
     let _ = std::fs::remove_dir(from); // succeeds only if empty
@@ -370,7 +367,7 @@ fn legacy_data(ctx: &Ctx) -> Result<(), PortErr> {
     move_legacy(&p.legacy_local, &p.data_local)?;
     if ctx.identifier != LEGACY_IDENTIFIER {
         win::reg_copy_tree_if_missing(&p.notification_key(LEGACY_IDENTIFIER), &p.notification_key(&ctx.identifier))
-            .map_err(|e| err("SETUP_REGISTRY_FAILED", e))?;
+            .map_err(|e| PortErr::new("SETUP_REGISTRY_FAILED", e))?;
     }
     Ok(())
 }
@@ -378,25 +375,21 @@ fn legacy_data(ctx: &Ctx) -> Result<(), PortErr> {
 fn nsis_leftovers(places: &Places) -> Result<(), PortErr> {
     let old = places.install_dir.join("uninstall.exe");
     if old.exists() {
-        std::fs::remove_file(&old).map_err(|e| err("SETUP_WRITE_FAILED", format!("{}: {e}", old.display())))?;
+        std::fs::remove_file(&old).map_err(|e| PortErr::new("SETUP_WRITE_FAILED", format!("{}: {e}", old.display())))?;
     }
-    win::reg_delete_tree(&places.nsis_key()).map_err(|e| err("SETUP_REGISTRY_FAILED", e))
+    win::reg_delete_tree(&places.nsis_key()).map_err(|e| PortErr::new("SETUP_REGISTRY_FAILED", e))
 }
 
-/// Deletes only a folder with the expected name, so a wrong path cannot reach another folder; retries for 3 s like `move_legacy`.
+/// Deletes only a folder with the expected name, so a wrong path cannot reach another folder.
 fn remove_dir(dir: &Path, expected: &str, code: &'static str) -> Result<(), PortErr> {
     if dir.file_name().and_then(|n| n.to_str()) != Some(expected) {
-        return Err(err(code, format!("unexpected folder: {}", dir.display())));
+        return Err(PortErr::new(code, format!("unexpected folder: {}", dir.display())));
     }
-    let until = Instant::now() + Duration::from_secs(3);
-    loop {
-        match std::fs::remove_dir_all(dir) {
-            Ok(()) => return Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(e) if Instant::now() >= until => return Err(err(code, format!("{}: {e}", dir.display()))),
-            Err(_) => std::thread::sleep(Duration::from_millis(200)),
-        }
-    }
+    retry(|| match std::fs::remove_dir_all(dir) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        done => done,
+    })
+    .map_err(|e| PortErr::new(code, format!("{}: {e}", dir.display())))
 }
 
 type Progress<'a> = &'a dyn Fn(usize, usize);
@@ -412,7 +405,7 @@ fn install(ctx: &Ctx, desktop: bool, progress: Progress) -> Result<(), PortErr> 
             InstallStep::LegacyData => legacy_data(ctx)?,
             InstallStep::WriteExe => write_exe(&ctx.this_exe, p)?,
             InstallStep::WriteNotices => {
-                let bytes = ctx.notices.lock().ok().and_then(|n| n.clone()).ok_or_else(|| err("SETUP_NOTICES_MISSING", NOTICES))?;
+                let bytes = ctx.notices.lock().ok().and_then(|n| n.clone()).ok_or_else(|| PortErr::new("SETUP_NOTICES_MISSING", NOTICES))?;
                 write_atomic(&p.install_dir.join(NOTICES), |tmp| std::fs::write(tmp, &bytes))?
             }
             InstallStep::StartShortcut => link(ctx, &p.start_menu)?,
@@ -420,7 +413,7 @@ fn install(ctx: &Ctx, desktop: bool, progress: Progress) -> Result<(), PortErr> 
             InstallStep::UninstallEntry => {
                 let size = [p.exe(), p.install_dir.join(NOTICES)].iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum::<u64>();
                 let values = entry(p, &ctx.version, &ctx.publisher, (size / 1024) as u32);
-                win::reg_write(&p.uninstall_key(), &values).map_err(|e| err("SETUP_REGISTRY_FAILED", e))?
+                win::reg_write(&p.uninstall_key(), &values).map_err(|e| PortErr::new("SETUP_REGISTRY_FAILED", e))?
             }
             InstallStep::NsisLeftovers => nsis_leftovers(p)?,
         }
@@ -440,8 +433,8 @@ fn uninstall(ctx: &Ctx, remove_data: bool, progress: Progress) -> Result<(), Por
                 remove_link_if_ours(&p.start_menu.join(LINK), &p.exe())?;
                 remove_link_if_ours(&p.desktop.join(LINK), &p.exe())?
             }
-            UninstallStep::RunValue => win::reg_delete_value(&p.run_key(), "Postbell").map_err(|e| err("UNINSTALL_REGISTRY_FAILED", e))?,
-            UninstallStep::UninstallEntry => win::reg_delete_tree(&p.uninstall_key()).map_err(|e| err("UNINSTALL_REGISTRY_FAILED", e))?,
+            UninstallStep::RunValue => win::reg_delete_value(&p.run_key(), "Postbell").map_err(|e| PortErr::new("UNINSTALL_REGISTRY_FAILED", e))?,
+            UninstallStep::UninstallEntry => win::reg_delete_tree(&p.uninstall_key()).map_err(|e| PortErr::new("UNINSTALL_REGISTRY_FAILED", e))?,
             UninstallStep::NsisLeftovers => nsis_leftovers(p)?,
             UninstallStep::InstallDir => remove_dir(&p.install_dir, PRODUCT_DIR, "UNINSTALL_DIR_LOCKED")?,
             UninstallStep::Data => {
@@ -475,9 +468,9 @@ pub fn setup_state(ctx: State<Arc<Ctx>>) -> SetupInfo {
 
 async fn blocking(ctx: Arc<Ctx>, want: Mode, f: impl FnOnce(&Ctx) -> Result<(), PortErr> + Send + 'static) -> Result<(), PortErr> {
     if ctx.mode != want {
-        return Err(err("SETUP_WRONG_MODE", format!("{:?}", ctx.mode)));
+        return Err(PortErr::new("SETUP_WRONG_MODE", format!("{:?}", ctx.mode)));
     }
-    tauri::async_runtime::spawn_blocking(move || f(&ctx)).await.map_err(|e| err("SETUP_FAILED", e))?
+    tauri::async_runtime::spawn_blocking(move || f(&ctx)).await.map_err(|e| PortErr::new("SETUP_FAILED", e))?
 }
 
 /// Must match `parseProgress` in `src/core/setup.ts`.
@@ -489,6 +482,7 @@ struct ProgressEvent {
 
 fn emitter(app: AppHandle) -> impl Fn(usize, usize) {
     move |done, total| {
+        // Setup has no log, and a lost step only holds the bar until the next one; the command's result ends the wait.
         let _ = app.emit_to("setup", "setup-progress", ProgressEvent { done, total });
     }
 }
@@ -506,15 +500,15 @@ pub async fn setup_uninstall(app: AppHandle, remove_data: bool, ctx: State<'_, A
 #[tauri::command]
 pub async fn setup_close_app(ctx: State<'_, Arc<Ctx>>) -> Result<(), PortErr> {
     let ctx = ctx.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || close_app(&ctx.places, true)).await.map_err(|e| err("SETUP_FAILED", e))?
+    tauri::async_runtime::spawn_blocking(move || close_app(&ctx.places, true)).await.map_err(|e| PortErr::new("SETUP_FAILED", e))?
 }
 
 #[tauri::command]
 pub fn setup_open_app(app: AppHandle, ctx: State<Arc<Ctx>>) -> Result<(), PortErr> {
     match &ctx.test_root {
-        Some(root) => std::fs::write(root.join("opened.txt"), ctx.places.exe().display().to_string()).map_err(|e| err("SETUP_OPEN_FAILED", e))?,
+        Some(root) => std::fs::write(root.join("opened.txt"), ctx.places.exe().display().to_string()).map_err(|e| PortErr::new("SETUP_OPEN_FAILED", e))?,
         None => {
-            std::process::Command::new(ctx.places.exe()).current_dir(&ctx.places.install_dir).spawn().map_err(|e| err("SETUP_OPEN_FAILED", e))?;
+            std::process::Command::new(ctx.places.exe()).current_dir(&ctx.places.install_dir).spawn().map_err(|e| PortErr::new("SETUP_OPEN_FAILED", e))?;
         }
     }
     app.exit(0);
@@ -548,6 +542,7 @@ pub fn webview_missing(detail: &str) -> ! {
         "Postbell'in penceresi açılamadı. Microsoft Edge WebView2 Runtime kurulu olmayabilir.\n\nİndirme sayfası açılsın mı?\n\nWINDOW_CREATE_FAILED: {detail}"
     );
     if win::message_box(&text, "Postbell", true) {
+        // The process ends either way, and the message already named the cause.
         let _ = crate::open::open_url("https://developer.microsoft.com/microsoft-edge/webview2/");
     }
     std::process::exit(1)

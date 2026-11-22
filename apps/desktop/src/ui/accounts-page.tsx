@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
-import { accountProblems, type AccountDraft, type AccountRow } from "../core/accounts.ts";
+import { accountProblems, HANDLE_MAX, type AccountDraft, type AccountRow } from "../core/accounts.ts";
 import { LANGUAGES, type Language } from "../core/manifest.ts";
 import { NETWORKS, type AccountId, type BrandId, type Network } from "../core/shares.ts";
 import type { StoreFile } from "../core/store.ts";
@@ -137,7 +137,7 @@ export function AccountForm({ store, brand, initial, self, networkFixed, title, 
           className="field field-block"
           type="text"
           value={draft.handle}
-          maxLength={200}
+          maxLength={HANDLE_MAX}
           autoFocus
           spellCheck={false}
           autoComplete="off"

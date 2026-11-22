@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { connect, findPage } from "../cdp.mjs";
 
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const args = process.argv.slice(2);
@@ -59,42 +60,12 @@ async function launch(port, report) {
     stdio: "ignore",
   });
   const kill = () => execFileSync("taskkill", ["/F", "/T", "/PID", String(p.pid)], { stdio: "ignore" });
-  let targets = [];
-  for (let i = 0; i < 100 && !targets.some((t) => t.type === "page"); i++) {
-    try {
-      targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-    } catch {
-    }
-    await sleep(200);
-  }
-  const page = targets.find((t) => t.type === "page");
+  const page = await findPage(port, 100);
   if (!page) {
     kill();
     throw new Error("the debugging port did not open (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS did not take)");
   }
-  const ws = new WebSocket(page.webSocketDebuggerUrl);
-  await new Promise((r) => ws.addEventListener("open", r, { once: true }));
-  let seq = 0;
-  const pending = new Map();
-  ws.addEventListener("message", (e) => {
-    const m = JSON.parse(e.data);
-    if (!m.id || !pending.has(m.id)) return;
-    const q = pending.get(m.id);
-    pending.delete(m.id);
-    if (m.error) q.rej(new Error(JSON.stringify(m.error)));
-    else q.res(m.result);
-  });
-  const send = (method, params = {}) =>
-    new Promise((res, rej) => {
-      const i = ++seq;
-      pending.set(i, { res, rej });
-      ws.send(JSON.stringify({ id: i, method, params }));
-    });
-  const ev = async (expr) => {
-    const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true });
-    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
-    return r.result.value;
-  };
+  const { ws, ev } = await connect(page);
   const waitFor = async (expr, what, ms = 10000) => {
     for (let t = 0; t < ms; t += 100) {
       if (await ev(expr)) return;

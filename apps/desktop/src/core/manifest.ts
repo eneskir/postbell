@@ -1,5 +1,6 @@
 import { manifestSchemaV1, type ManifestV1 } from "./manifest.gen.ts";
 import { validate } from "./schema.ts";
+import { parseDate } from "./time.ts";
 
 export type Platform = ManifestV1["entries"][number]["platform"];
 export type Language = ManifestV1["language"];
@@ -41,12 +42,6 @@ export const SUPPORTED_VERSION = 1;
 
 const shape = (path: string, rule: string): ManifestResult => ({ ok: false, error: { code: "invalid-shape", path, rule } });
 
-function isCalendarDate(s: string): boolean {
-  const [y, m, d] = s.split("-").map(Number) as [number, number, number];
-  const t = new Date(Date.UTC(y, m - 1, d));
-  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
-}
-
 // JSON can carry lone surrogates (`\ud83d`): JS strings keep them, the shell's Rust strings reject them.
 function illFormedPath(value: unknown, path: string): string | null {
   if (typeof value === "string") return /\p{Cs}/u.test(value) ? path : null;
@@ -84,7 +79,7 @@ export function parseManifest(raw: unknown): ManifestResult {
 
   const illFormed = illFormedPath(m, "");
   if (illFormed) return shape(illFormed, "unicode");
-  if (!isCalendarDate(m.date)) return shape("date", "date");
+  if (parseDate(m.date) === null) return shape("date", "date");
   const files = new Map<string, ContentFile>();
   for (const [i, f] of m.files.entries()) {
     if (files.has(f.id)) return shape(`files[${i}].id`, "unique");

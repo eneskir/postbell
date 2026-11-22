@@ -14,7 +14,7 @@ mod tray;
 
 use serde::Serialize;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 use store::PortErr;
 use tauri::{AppHandle, Manager, State};
@@ -63,6 +63,12 @@ pub fn parse_args(args: &[String]) -> Result<Options, String> {
 
 struct DataDir(PathBuf);
 struct Registry(Mutex<packages::Registry>);
+
+impl Registry {
+    fn allow_list(&self) -> Result<MutexGuard<'_, packages::Registry>, PortErr> {
+        self.0.lock().map_err(|_| PortErr::new("FOLDER_READ", "allow list is locked"))
+    }
+}
 
 #[derive(Serialize)]
 struct SelfTestReport<'a> {
@@ -127,31 +133,22 @@ fn store_backup(dir: State<DataDir>) -> Result<String, PortErr> {
 
 #[tauri::command]
 fn packages_read(folder: String, registry: State<Registry>) -> Result<Vec<packages::PackageDir>, PortErr> {
-    let r = registry.0.lock().map_err(|_| PortErr::new("FOLDER_READ", "allow list is locked"))?;
-    packages::read(&r, &folder)
+    packages::read(&*registry.allow_list()?, &folder)
 }
 
 #[tauri::command]
 fn file_reveal(folder: String, path: String, registry: State<Registry>) -> Result<(), PortErr> {
-    let target = {
-        let r = registry.0.lock().map_err(|_| PortErr::new("FOLDER_READ", "allow list is locked"))?;
-        open::reveal_target(&r, &folder, &path)?
-    };
+    let target = open::reveal_target(&*registry.allow_list()?, &folder, &path)?;
     open::reveal(&target)
 }
 
 /// The target is resolved again after the dialog, because the store may change while it is open.
 #[tauri::command]
 async fn file_restore(app: AppHandle, folder: String, path: String) -> Result<&'static str, PortErr> {
-    let target = || -> Result<Option<PathBuf>, PortErr> {
-        let registry = app.state::<Registry>();
-        let r = registry.0.lock().map_err(|_| PortErr::new("FOLDER_READ", "allow list is locked"))?;
-        restore::restore_target(&r, &folder, &path)
-    };
+    let target = || restore::restore_target(&*app.state::<Registry>().allow_list()?, &folder, &path);
     let Some(first) = target()? else { return Ok("present") };
     let name = first.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let window = app.get_webview_window("main").ok_or_else(|| PortErr::new("DIALOG_FAILED", "WINDOW_MISSING"))?;
-    let owner = owner_of(&window)?;
+    let owner = dialog_owner(&app)?;
     let picked = tauri::async_runtime::spawn_blocking(move || dialog::pick_file(owner, &name))
         .await
         .map_err(|e| PortErr::new("DIALOG_FAILED", e))??;
@@ -170,10 +167,15 @@ fn share_page_open(platform: String, text: String) -> Result<&'static str, PortE
     Ok(if dropped { "text-dropped" } else { "opened" })
 }
 
+/// Parses a command's JSON text argument. Errors name only the kind and position: serde's own message can quote values, which must not reach the log.
+fn parse_json<T: serde::de::DeserializeOwned>(text: &str) -> Result<T, String> {
+    serde_json::from_str(text).map_err(|e| format!("{:?}, line {}, column {}", e.classify(), e.line(), e.column()))
+}
+
 /// The plan arrives as JSON text because Tauri never calls a command whose typed argument fails to parse, so the failure would not be logged.
 #[tauri::command]
 fn alarms_set(plan: String, service: State<Arc<alarms::Service>>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
-    match alarms::parse_plan(&plan) {
+    match parse_json::<alarms::Plan>(&plan) {
         Ok(plan) => {
             let n = service.set(plan);
             log.line(&format!("alarms: {n}"));
@@ -189,7 +191,7 @@ fn alarms_set(plan: String, service: State<Arc<alarms::Service>>, log: State<Arc
 /// Texts arrive as JSON text for the same reason as `alarms_set`.
 #[tauri::command]
 fn tray_set(app: AppHandle, texts: String, tray: State<tray::Tray>, options: State<Options>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
-    let texts = tray::parse_texts(&texts).map_err(|e| {
+    let texts = parse_json::<tray::Texts>(&texts).map_err(|e| {
         log.line(&format!("TRAY_REJECTED: {e}"));
         PortErr::new("TRAY_REJECTED", e)
     })?;
@@ -207,20 +209,22 @@ fn tray_set(app: AppHandle, texts: String, tray: State<tray::Tray>, options: Sta
 
 #[tauri::command]
 async fn dialog_pick_folder(app: AppHandle) -> Result<Option<String>, PortErr> {
-    let window = app.get_webview_window("main").ok_or_else(|| PortErr::new("DIALOG_FAILED", "WINDOW_MISSING"))?;
-    let owner = owner_of(&window)?;
+    let owner = dialog_owner(&app)?;
     tauri::async_runtime::spawn_blocking(move || dialog::pick_folder(owner))
         .await
         .map_err(|e| PortErr::new("DIALOG_FAILED", e))?
 }
 
+/// The main window's handle, which owns the pickers.
 #[cfg(windows)]
-fn owner_of(window: &tauri::WebviewWindow) -> Result<isize, PortErr> {
+fn dialog_owner(app: &AppHandle) -> Result<isize, PortErr> {
+    let window = app.get_webview_window("main").ok_or_else(|| PortErr::new("DIALOG_FAILED", "WINDOW_MISSING"))?;
     window.hwnd().map(|h| h.0 as isize).map_err(|e| PortErr::new("DIALOG_FAILED", e))
 }
 
+/// The pickers are Windows-only, so they need no owner here.
 #[cfg(not(windows))]
-fn owner_of(_window: &tauri::WebviewWindow) -> Result<isize, PortErr> {
+fn dialog_owner(_app: &AppHandle) -> Result<isize, PortErr> {
     Ok(0)
 }
 
@@ -238,17 +242,26 @@ fn ready(app: AppHandle, window: tauri::WebviewWindow, rendered: String, options
             Ok(())
         }
         None => {
-            window.show().map_err(|e| format!("WINDOW_SHOW: {e}"))?;
-            window.set_focus().map_err(|e| format!("WINDOW_FOCUS: {e}"))
+            let r = window
+                .show()
+                .map_err(|e| format!("WINDOW_SHOW: {e}"))
+                .and_then(|()| window.set_focus().map_err(|e| format!("WINDOW_FOCUS: {e}")));
+            // The window may still be hidden, so the UI cannot show this error; the log keeps it.
+            if let (Err(e), Some(log)) = (&r, app.try_state::<Arc<log::Log>>()) {
+                log.line(e);
+            }
+            r
         }
     }
 }
 
+/// Each step runs even if an earlier one failed, so a window that cannot be unminimized still shows.
 pub(crate) fn show_main(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.unminimize();
-        let _ = w.show();
-        let _ = w.set_focus();
+    let Some(w) = app.get_webview_window("main") else { return };
+    for (code, result) in [("WINDOW_UNMINIMIZE", w.unminimize()), ("WINDOW_SHOW", w.show()), ("WINDOW_FOCUS", w.set_focus())] {
+        if let (Err(e), Some(log)) = (result, app.try_state::<Arc<log::Log>>()) {
+            log.line(&format!("{code}: {e}"));
+        }
     }
 }
 
@@ -265,7 +278,9 @@ fn second_instance(app: &AppHandle, argv: Vec<String>) {
     if let Some(report) = &options.self_test {
         let mut mark = report.clone().into_os_string();
         mark.push(".second-instance.json");
-        let _ = std::fs::write(PathBuf::from(mark), serde_json::to_string_pretty(&argv).unwrap_or_default());
+        if let (Err(e), Some(log)) = (std::fs::write(PathBuf::from(mark), serde_json::to_string_pretty(&argv).unwrap_or_default()), app.try_state::<Arc<log::Log>>()) {
+            log.line(&format!("SELF_TEST_WRITE: {e}"));
+        }
         return;
     }
     show_main(app);
@@ -415,7 +430,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
                     Err(_) => Err(tauri::http::StatusCode::INTERNAL_SERVER_ERROR),
                 };
                 let range = request.headers().get(tauri::http::header::RANGE).and_then(|v| v.to_str().ok());
-                responder.respond(media::respond(path, request.method(), range));
+                responder.respond(media::respond(path, request.method(), range, &app.state::<Arc<log::Log>>()));
             });
         })
         .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set])

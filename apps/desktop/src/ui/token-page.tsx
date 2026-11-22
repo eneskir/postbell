@@ -10,6 +10,7 @@ import figma from "../../tokens/figma.json";
 import { contrastRatio } from "../core/contrast.ts";
 import { emptyDrawings, logos, navIcons, stickers } from "./assets.gen.ts";
 import { Button, Notice, SkeletonList, Tag, type ButtonVariant, type Tone } from "./components.tsx";
+import { text } from "./text.ts";
 
 type Variable = { name: string; type: string; value: string | number };
 type TextStyle = { name: string; family: string; style: string; size: number; lineHeight: number };
@@ -93,11 +94,11 @@ function TokenPage() {
             <Tag key={t} tone={t}>{`tag/status/${t}`}</Tag>
           ))}
         </div>
-        <Notice tone="neutral" action={{ label: "Hesap ekle", onClick: noop }}>
-          Bildirim için hesap ve paylaşım saati gerekiyor.
+        <Notice tone="neutral" action={{ label: text.today.setupAction["add-account"], onClick: noop }}>
+          {text.today.setupNotice}
         </Notice>
-        <Notice tone="danger" action={{ label: "Yeniden dene", onClick: noop }}>
-          Şifre kasası açılamıyor. Hesaplar görünür, şifreler okunamıyor.
+        <Notice tone="danger" action={{ label: text.folder.retry, onClick: noop }}>
+          {text.folder.rejected(1)}
         </Notice>
         <SkeletonList label="iskelet" />
       </div>

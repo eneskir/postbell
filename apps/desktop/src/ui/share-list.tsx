@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { BrandId, Share, ShareId, TodayGroups } from "../core/shares.ts";
-import { formatTime, timeOf } from "../core/time.ts";
-import { rowTagOf, type RowTag } from "../core/today.ts";
+import { formatTime } from "../core/time.ts";
+import { rowTagOf, rowTimeOf, type RowTag } from "../core/today.ts";
 import { stickers, type StickerName } from "./assets.gen.ts";
 import { Tag } from "./components.tsx";
 import { assertNever } from "./route.ts";
@@ -52,9 +52,8 @@ export function ShareGroups({ groups, selected, openPanel, undo, brandOf }: Prop
 }
 
 function rowTime(s: Share): string {
-  const st = s.status;
-  if (st.kind === "done" || st.kind === "skipped") return formatTime(timeOf(st.at));
-  return s.plannedAt.kind === "at" ? formatTime(timeOf(s.plannedAt.at)) : text.today.noTime;
+  const t = rowTimeOf(s);
+  return t === null ? text.today.noTime : formatTime(t);
 }
 
 function statusTag(t: RowTag | null): ReactNode {

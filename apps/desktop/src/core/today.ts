@@ -1,6 +1,6 @@
 import type { FolderState } from "./packages.ts";
 import { plannedDate, todayGroups, type BrandId, type Share, type TodayGroups } from "./shares.ts";
-import type { LocalDate, LocalMs } from "./time.ts";
+import { timeOf, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 
 export type DayList = {
   readonly groups: TodayGroups;
@@ -57,6 +57,13 @@ export function homeView(shares: readonly Share[], brands: readonly BrandState[]
     else if (b.rejected > 0) problems.push({ brand: b.brand, kind: "rejected", count: b.rejected });
   }
   return { ...dayList(shares.filter((s) => known.has(s.brand)), today), problems };
+}
+
+/** The time a row shows: when it was finished, else when it is planned; `null` for a share with no time. */
+export function rowTimeOf(s: Share): TimeOfDay | null {
+  const st = s.status;
+  if (st.kind === "done" || st.kind === "skipped") return timeOf(st.at);
+  return s.plannedAt.kind === "at" ? timeOf(s.plannedAt.at) : null;
 }
 
 export type RowTag = { readonly kind: "file-missing" } | { readonly kind: "late"; readonly lateByMin: number } | { readonly kind: "due" } | { readonly kind: "skipped" };
