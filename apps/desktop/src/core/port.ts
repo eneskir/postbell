@@ -4,10 +4,14 @@ import type { PackageDir } from "./packages.ts";
 import type { BrandId, ShareId } from "./shares.ts";
 import type { StoreFile } from "./store.ts";
 
-export interface Port {
-  appInfo(): Promise<ParseResult<AppInfo>>;
+// The app and the setup windows share it.
+export interface ReadyPort {
   // The first frame is drawn; the shell shows the window. `rendered` is recorded only in self-test mode.
   ready(rendered: string): Promise<void>;
+}
+
+export interface Port extends ReadyPort {
+  appInfo(): Promise<ParseResult<AppInfo>>;
   // Self-test mode (real shell only): the UI adds a test record and the shell keeps the window hidden.
   selfTest(): Promise<{ readonly active: boolean; readonly addRecord: boolean }>;
   readonly packages: {
@@ -19,7 +23,8 @@ export interface Port {
     url(folder: string, path: string): string;
     // Opens Explorer with the file selected; a missing file gives `file-missing`, a path outside the folder is refused.
     reveal(folder: string, path: string): Promise<PortResult<void>>;
-    // Copies a file picked in the Windows file dialog into the package folder under its manifest name; the source path never reaches the UI. A different extension gives `file-type`; an existing file is never overwritten.
+    // Copies a file picked in the Windows file dialog into the package under its manifest name, never overwriting.
+    // The picked path never reaches the UI; another extension gives `file-type`.
     restore(folder: string, path: string): Promise<PortResult<RestoreResult>>;
   };
   // Opens the platform's share page in the default browser (URLs in `src-tauri/src/open.rs`); only X takes the text. `text-dropped`: the text did not fit the URL.
@@ -36,7 +41,7 @@ export interface Port {
     toggleMaximize(): Promise<void>;
     close(): Promise<void>;
   };
-  // The whole list is sent on every change. A notification click focuses the window and reports its target (null: grouped notification, Home). `onOpen` returns an unsubscribe function.
+  // `set` takes the whole list on every change. A notification click focuses the window and reports its target, null for a grouped one (Home).
   readonly alarms: {
     set(plan: AlarmPlan): Promise<PortResult<void>>;
     onOpen(open: (target: AlarmTarget | null) => void): () => void;

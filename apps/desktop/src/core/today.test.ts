@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseManifest, type Content } from "./manifest.ts";
-import { deriveShares, fileKeyOf, shareIdOf, type Account, type AccountId, type BrandId, type ContentId, type ShareRecord } from "./shares.ts";
+import { deriveShares, fileKeyOf, shareIdOf, type Account, type AccountId, type BrandId, type ContentId, type FileKey, type ShareRecord } from "./shares.ts";
 import { at, parseDate, parseTime, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 import { homeView, rowTagOf, todayView, type BrandState } from "./today.ts";
 
@@ -31,7 +31,7 @@ const accounts = (brand: BrandId): Account[] => [
 
 const read = (brand: BrandId): BrandState => ({ brand, folder: { kind: "read" }, rejected: 0 });
 
-const shares = (contents: readonly Content[], now: LocalMs, records: readonly ShareRecord[] = [], missingFiles: ReadonlySet<string> = new Set()) =>
+const shares = (contents: readonly Content[], now: LocalMs, records: readonly ShareRecord[] = [], missingFiles: ReadonlySet<FileKey> = new Set()) =>
   deriveShares({ contents, accounts: [...accounts(P), ...accounts(O)], records, missingFiles, now });
 
 test("summary counts come from the brand's four groups; another brand's shares do not count", () => {
@@ -106,7 +106,7 @@ test("row tag: a missing file hides late and due; finished shares ignore the fil
   assert.deepEqual(t["initech/a/x"], { kind: "file-missing" });
   assert.deepEqual(t["initech/a/tiktok"], { kind: "file-missing" });
   assert.deepEqual(t["initech/a/pinterest"], { kind: "file-missing" }, "unscheduled share too");
-  assert.deepEqual(t["initech/b/x"], { kind: "late", lateBy: 580 });
+  assert.deepEqual(t["initech/b/x"], { kind: "late", lateByMin: 580 });
   assert.deepEqual(t["initech/b/tiktok"], { kind: "due" });
   assert.deepEqual(t["globex/c/x"], { kind: "skipped" }, "skipped ignores the file");
   const early = tags(shares(c, NOW("2026-11-11", "08:00"), [{ share: shareIdOf(P, "b" as ContentId, "tiktok"), status: "done", at: NOW("2026-11-11", "07:00") }]));

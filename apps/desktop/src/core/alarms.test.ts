@@ -33,7 +33,7 @@ const accounts = (brand: BrandId): Account[] => [
 const shares = (contents: readonly Content[], now: LocalMs, records: readonly ShareRecord[] = []) =>
   deriveShares({ contents, accounts: [...accounts(P), ...accounts(O)], records, missingFiles: new Set(), now });
 
-const view = (list: ReturnType<typeof alarmsOf>) => list.map((a) => `${formatLocal(a.at)} ${a.id} +${a.lateBy}`);
+const view = (list: ReturnType<typeof alarmsOf>) => list.map((a) => `${formatLocal(a.at)} ${a.id} +${a.lateByMin}`);
 
 test("a timed pending share gives two alarms: on time and one reminder interval later", () => {
   const all = shares([content(P, "today", "2026-11-12", ["tiktok"])], NOW("2026-11-12", "14:20"));

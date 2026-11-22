@@ -16,6 +16,7 @@ import {
   type BrandId,
   type ContentId,
   type DeriveInput,
+  type FileKey,
   type Network,
   type ShareRecord,
 } from "./shares.ts";
@@ -70,8 +71,8 @@ test("status: upcoming before the time, due on the minute, late at the threshold
   const justBefore = (NOW("2026-11-11", "09:00") + LATE_AFTER_MIN * 60_000 - 1) as LocalMs;
   assert.equal(only(input({ now: justBefore })).status.kind, "due");
   assert.equal(LATE_AFTER_MIN, 30, "late threshold is 30 minutes");
-  assert.deepEqual(only(input({ now: NOW("2026-11-11", "09:30") })).status, { kind: "late", lateBy: 30 });
-  assert.deepEqual(only(input({ now: NOW("2026-11-11", "14:20") })).status, { kind: "late", lateBy: 320 });
+  assert.deepEqual(only(input({ now: NOW("2026-11-11", "09:30") })).status, { kind: "late", lateByMin: 30 });
+  assert.deepEqual(only(input({ now: NOW("2026-11-11", "14:20") })).status, { kind: "late", lateByMin: 320 });
 });
 
 test("marked gives done, skipped gives skipped; undo (record removed) derives from the time again", () => {
@@ -113,12 +114,12 @@ test("a format without a time is unscheduled: never due or late, not in the badg
 test("day boundary: 23:59 and 00:01 shares fall on their own day; yesterday's late share is in today's late group", () => {
   const contents = [content("yesterday", "2026-11-10", ["x"]), content("today", "2026-11-11", ["tiktok"])];
   const shares = deriveShares(input({ contents, accounts: accountsAt({ x: "23:59", tiktok: "00:01" }), now: NOW("2026-11-11", "00:00") }));
-  const dun = shares.find((s) => s.content.id === "yesterday")!;
-  const bugun = shares.find((s) => s.content.id === "today")!;
-  assert.deepEqual(dun.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 10, 23, 59) });
-  assert.deepEqual(bugun.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 11, 0, 1) });
-  assert.equal(dun.status.kind, "due");
-  assert.equal(bugun.status.kind, "upcoming");
+  const yesterday = shares.find((s) => s.content.id === "yesterday")!;
+  const today = shares.find((s) => s.content.id === "today")!;
+  assert.deepEqual(yesterday.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 10, 23, 59) });
+  assert.deepEqual(today.plannedAt, { kind: "at", at: Date.UTC(2026, 10, 11, 0, 1) });
+  assert.equal(yesterday.status.kind, "due");
+  assert.equal(today.status.kind, "upcoming");
   const midnight = todayGroups(shares, D("2026-11-11"));
   assert.deepEqual(midnight.upcoming.map((s) => s.content.id), ["yesterday", "today"], "a share due yesterday stays after midnight");
   const later = deriveShares(input({ contents, accounts: accountsAt({ x: "23:59", tiktok: "00:01" }), now: NOW("2026-11-11", "09:00") }));
@@ -138,7 +139,7 @@ test("the same content id in two brands: separate shares, one brand's record doe
 });
 
 test("blockers: file-missing when the file is not in the folder, account-missing and no time without an account", () => {
-  const s = only(input({ missingFiles: new Set(["initech/c1/main.png"]), accounts: [] }));
+  const s = only(input({ missingFiles: new Set(["initech/c1/main.png" as FileKey]), accounts: [] }));
   assert.deepEqual(s.blockers, ["file-missing", "account-missing"]);
   assert.equal(s.account, null);
   assert.deepEqual(s.plannedAt, { kind: "unscheduled", date: "2026-11-11" }, "the time belongs to the account; no account, no time");

@@ -42,7 +42,7 @@ export function SetupApp({ port }: { port: SetupPort }) {
     setProgress(0);
     setPhase({ kind: "busy" });
     if (force) {
-      const c = await port.closeApp();
+      const c = await port.forceCloseApp();
       if (!c.ok) return setPhase({ kind: "error", job, error: c.error });
     }
     const r = job === "install" ? await port.install(desktop) : await port.uninstall(removeData);

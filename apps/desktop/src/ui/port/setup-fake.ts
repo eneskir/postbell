@@ -30,7 +30,7 @@ export const setupFakePort: SetupPort = {
   },
   install: (desktop) => work(desktop ? 7 : 6),
   uninstall: (removeData) => work(removeData ? 7 : 6),
-  async closeApp() {
+  async forceCloseApp() {
     forced = true;
     return { ok: true };
   },
