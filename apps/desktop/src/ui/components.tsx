@@ -6,7 +6,7 @@ export type Action = { readonly label: string; readonly onClick: () => void };
 // "deep" lets child elements drag the window too; buttons do not.
 export const DRAG = { "data-tauri-drag-region": "deep" } as const;
 
-// Focus goes back to the control that opened a toast, panel or dialog, or to the page once that control is gone.
+// Focus goes back to where it was before a toast, panel or dialog took it, or to the page once that element is gone.
 export const focusBack = (to: HTMLElement | null | undefined) => (to?.isConnected ? to : document.querySelector<HTMLElement>("main.page"))?.focus();
 
 export function Icon({ name }: { name: IconName }) {

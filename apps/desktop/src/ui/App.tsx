@@ -96,7 +96,7 @@ export function App({ port }: { port: Port }) {
   }, [port, attempt]);
 
   // The shell shows the window only after the first real frame, which avoids a white flash.
-  // A failed `ready` leaves the window hidden, so nothing here can show it; the tray icon still opens the window.
+  // `ready` errors are not shown here: the window may still be hidden, so the shell logs them; the tray icon still opens the window.
   useEffect(() => {
     if (screen.kind === "loading" || readySent) return;
     readySent = true;
