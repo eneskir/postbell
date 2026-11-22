@@ -2,7 +2,7 @@ import { parseAppInfo } from "../../core/app-info.ts";
 import type { Language } from "../../core/manifest.ts";
 import type { PackageDir } from "../../core/packages.ts";
 import { parseAlarmTarget, type AlarmPlan, type Port, type TrayTexts } from "../../core/port.ts";
-import type { Account, AccountId, BrandId, Network, ShareId, Times } from "../../core/shares.ts";
+import type { Account, AccountDetails, AccountId, BrandId, Network, ShareId, Times } from "../../core/shares.ts";
 import { emptyStore, serializeStore, withRecord, type StoreFile } from "../../core/store.ts";
 import { at, DAY, dateOf, parseDate, parseTime, type LocalDate, type TimeOfDay } from "../../core/time.ts";
 import { localNow } from "../clock.ts";
@@ -31,13 +31,14 @@ function packagesOf(brandFolder: string): PackageDir[] {
 const fixtureFolders = [...new Set(Object.keys(manifests).map((p) => `fixtures/${p.slice(ROOT.length).split("/")[0]}`))];
 
 const T = (s: string) => parseTime(s) as TimeOfDay;
-const account = (network: Network, times: Times, language: Language = "en"): Account => ({
+const account = (network: Network, times: Times, language: Language = "en", details: AccountDetails = {}): Account => ({
   id: `initech-${network}${language === "en" ? "" : `-${language}`}` as AccountId,
   brand: "initech" as BrandId,
   network,
   handle: language === "en" ? "@initech" : `@initech.${language}`,
   language,
   times,
+  ...details,
 });
 let store: StoreFile = {
   ...emptyStore(),
@@ -47,12 +48,17 @@ let store: StoreFile = {
   ],
   groups: [{ id: "musteri-a", name: "Müşteri A", open: true, brands: ["globex" as BrandId] }],
   accounts: [
-    account("x", { x: T("09:00") }),
-    account("instagram", { "instagram-reels": T("14:15") }),
+    account("x", { x: T("09:00") }, "en", { email: "initech@example.com", twoStep: "app" }),
+    account("instagram", { "instagram-reels": T("14:15") }, "en", {
+      email: "initech@example.com",
+      twoStep: "app",
+      recoveryEmail: "kurtarma@example.com",
+      note: "Creator hesabı; Threads buna bağlı",
+    }),
     account("instagram", { "instagram-reels": T("14:45") }, "tr"),
-    account("tiktok", { tiktok: T("18:30") }),
-    account("youtube", { "youtube-shorts": T("19:00") }),
-    account("pinterest", { pinterest: T("20:00") }),
+    account("tiktok", { tiktok: T("18:30") }, "en", { email: "video@example.com", twoStep: "sms" }),
+    account("youtube", { "youtube-shorts": T("19:00") }, "en", { email: "video@example.com", twoStep: "app" }),
+    account("pinterest", { pinterest: T("20:00") }, "en", { email: "initech@example.com", twoStep: "none" }),
   ],
 };
 

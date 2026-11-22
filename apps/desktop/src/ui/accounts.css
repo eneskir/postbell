@@ -70,11 +70,22 @@
   color: var(--color-text-muted);
 }
 
-.account-language {
+.account-email,
+.account-two-step {
   flex: none;
-  width: var(--size-cell-language);
+  overflow: hidden;
   color: var(--color-text-muted);
   font: var(--text-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-email {
+  width: var(--size-cell-email);
+}
+
+.account-two-step {
+  width: var(--size-cell-two-step);
 }
 
 .account-action {
@@ -110,6 +121,40 @@
 .account-add {
   color: var(--color-text);
   font: var(--text-label);
+}
+
+.account-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+  margin: 0;
+}
+
+.account-detail-row {
+  display: flex;
+  gap: var(--space-s);
+}
+
+.account-detail dt {
+  flex: none;
+  width: var(--size-detail-label);
+  color: var(--color-text-muted);
+  font: var(--text-label);
+}
+
+.account-detail dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text);
+  font: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.account-detail-end {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-m);
+  box-shadow: inset 0 1px 0 var(--color-border);
 }
 
 .account-form {

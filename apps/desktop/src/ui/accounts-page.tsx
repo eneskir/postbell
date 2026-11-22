@@ -1,8 +1,8 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { accountProblems, HANDLE_MAX, type AccountDraft, type AccountRow } from "../core/accounts.ts";
 import { LANGUAGES, type Language } from "../core/manifest.ts";
-import { NETWORKS, type AccountId, type BrandId, type Network } from "../core/shares.ts";
-import type { StoreFile } from "../core/store.ts";
+import { NETWORKS, TWO_STEP, type Account, type AccountId, type BrandId, type Network, type TwoStep } from "../core/shares.ts";
+import { EMAIL_MAX, NOTE_MAX, type StoreFile } from "../core/store.ts";
 import { Button, EmptyState } from "./components.tsx";
 import { text } from "./text.ts";
 
@@ -21,6 +21,8 @@ type PageProps = {
 export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }: PageProps) {
   if (rows.length === 0) return <EmptyState drawing="whirl-5" title={text.accounts.emptyTitle} body={text.accounts.emptyBody} action={{ label: text.accounts.add, onClick: addAny }} />;
   const missing = rows.filter((r) => r.kind === "missing").length;
+  // A network with more than one row names each row's language, as the add rows already do.
+  const many = (n: Network) => rows.filter((r) => (r.kind === "account" ? r.account.network : r.network) === n).length > 1;
   return (
     <div className="page-body accounts">
       <p className="page-summary">{text.accounts.summary(rows.length, missing)}</p>
@@ -33,8 +35,11 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }
             <span role="columnheader" className="account-handle">
               {text.accounts.head.handle}
             </span>
-            <span role="columnheader" className="account-language">
-              {text.accounts.head.language}
+            <span role="columnheader" className="account-email">
+              {text.accounts.head.email}
+            </span>
+            <span role="columnheader" className="account-two-step">
+              {text.accounts.head.twoStep}
             </span>
             <span role="columnheader" className="account-action" />
           </div>
@@ -42,7 +47,7 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }
         <div role="rowgroup">
           {rows.map((r) =>
             r.kind === "account" ? (
-              <AccountLine key={r.account.id} row={r} selected={selected?.kind === "account" && selected.id === r.account.id} open={openAccount} />
+              <AccountLine key={r.account.id} row={r} languageShown={many(r.account.network)} selected={selected?.kind === "account" && selected.id === r.account.id} open={openAccount} />
             ) : (
               <MissingLine key={`${r.network}/${r.language}`} row={r} selected={selected?.kind === "missing" && selected.network === r.network && selected.language === r.language} add={addMissing} />
             ),
@@ -56,19 +61,22 @@ export function AccountsPage({ rows, selected, openAccount, addMissing, addAny }
   );
 }
 
-function AccountLine({ row: { account: a }, selected, open }: { row: Extract<AccountRow, { kind: "account" }>; selected: boolean; open: (id: AccountId) => void }) {
+function AccountLine({ row: { account: a }, languageShown, selected, open }: { row: Extract<AccountRow, { kind: "account" }>; languageShown: boolean; selected: boolean; open: (id: AccountId) => void }) {
   return (
     <div role="row" className={`account-row${selected ? " account-row-selected" : ""}`}>
       <span role="cell" className="account-network">
-        <button type="button" className="account-row-main" data-account={a.id} aria-current={selected ? "true" : undefined} aria-label={text.accounts.editLabel(a.network, a.handle)} onClick={() => open(a.id)}>
-          {text.accounts.network(a.network)}
+        <button type="button" className="account-row-main" data-account={a.id} aria-current={selected ? "true" : undefined} aria-label={text.accounts.openLabel(a.network, a.handle)} onClick={() => open(a.id)}>
+          {text.accounts.label(a.network, languageShown ? a.language : null)}
         </button>
       </span>
       <span role="cell" className="account-handle">
         {a.handle}
       </span>
-      <span role="cell" className="account-language">
-        {text.accounts.language(a.language)}
+      <span role="cell" className="account-email">
+        {a.email ?? text.accounts.none}
+      </span>
+      <span role="cell" className="account-two-step">
+        {text.accounts.twoStepShort(a.twoStep)}
       </span>
       <span role="cell" className="account-action" />
     </div>
@@ -84,8 +92,11 @@ function MissingLine({ row, selected, add }: { row: MissingRow; selected: boolea
       <span role="cell" className="account-handle">
         {text.accounts.none}
       </span>
-      <span role="cell" className="account-language">
-        {text.accounts.language(row.language)}
+      <span role="cell" className="account-email">
+        {text.accounts.none}
+      </span>
+      <span role="cell" className="account-two-step">
+        {text.accounts.none}
       </span>
       <span role="cell" className="account-action">
         <button type="button" className="account-row-main account-add" aria-current={selected ? "true" : undefined} onClick={() => add(row)}>
@@ -93,6 +104,34 @@ function MissingLine({ row, selected, add }: { row: MissingRow; selected: boolea
         </button>
       </span>
     </div>
+  );
+}
+
+export function AccountDetail({ account: a, onEdit }: { account: Account; onEdit: () => void }) {
+  const rows: readonly (readonly [string, string])[] = [
+    [text.accounts.detail.language, text.accounts.language(a.language)],
+    [text.accounts.detail.email, a.email ?? text.accounts.none],
+    [text.accounts.detail.twoStep, a.twoStep === undefined ? text.accounts.none : text.accounts.twoStepName(a.twoStep)],
+    [text.accounts.detail.recoveryEmail, a.recoveryEmail ?? text.accounts.none],
+    [text.accounts.detail.note, a.note ?? text.accounts.none],
+  ];
+  return (
+    <>
+      <h2 className="panel-heading">{text.accounts.editTitle(a.handle, a.network)}</h2>
+      <dl className="account-detail">
+        {rows.map(([label, value]) => (
+          <div key={label} className="account-detail-row">
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="account-detail-end">
+        <Button variant="ghost" onClick={onEdit}>
+          {text.accounts.editDetails}
+        </Button>
+      </div>
+    </>
   );
 }
 
@@ -109,7 +148,7 @@ type FormProps = {
 };
 
 export function AccountForm({ store, brand, initial, self, networkFixed, title, onSave, onCancel, onRemove }: FormProps) {
-  const id = { network: useId(), handle: useId(), language: useId() };
+  const id = { network: useId(), handle: useId(), language: useId(), email: useId(), twoStep: useId(), recoveryEmail: useId(), note: useId() };
   const [draft, setDraft] = useState(initial);
   const [tried, setTried] = useState(false);
   const problems = accountProblems(store, brand, draft, self);
@@ -149,6 +188,23 @@ export function AccountForm({ store, brand, initial, self, networkFixed, title, 
       <FormField id={id.language} label={text.accounts.fieldLanguage} error={languageError}>
         <Select id={id.language} value={draft.language} invalid={languageError !== null} options={LANGUAGES.map((l) => [l, text.accounts.language(l)])} onChange={(l) => set({ language: l })} />
       </FormField>
+      <FormField id={id.email} label={text.accounts.fieldEmail}>
+        <TextInput id={id.email} type="email" value={draft.email} max={EMAIL_MAX} onChange={(email) => set({ email })} />
+      </FormField>
+      <FormField id={id.twoStep} label={text.accounts.fieldTwoStep}>
+        <Select<TwoStep | "">
+          id={id.twoStep}
+          value={draft.twoStep ?? ""}
+          options={[["", text.accounts.twoStepUnset], ...TWO_STEP.map((t) => [t, text.accounts.twoStepName(t)] as const)]}
+          onChange={(t) => set({ twoStep: t === "" ? undefined : t })}
+        />
+      </FormField>
+      <FormField id={id.recoveryEmail} label={text.accounts.fieldRecoveryEmail}>
+        <TextInput id={id.recoveryEmail} type="email" value={draft.recoveryEmail} max={EMAIL_MAX} onChange={(recoveryEmail) => set({ recoveryEmail })} />
+      </FormField>
+      <FormField id={id.note} label={text.accounts.fieldNote}>
+        <TextInput id={id.note} value={draft.note} max={NOTE_MAX} placeholder={text.accounts.optional} onChange={(note) => set({ note })} />
+      </FormField>
       <div className="account-form-actions">
         <Button variant="primary" submit>
           {self === undefined ? text.accounts.save : text.accounts.saveEdit}
@@ -166,6 +222,10 @@ export function AccountForm({ store, brand, initial, self, networkFixed, title, 
       </div>
     </form>
   );
+}
+
+function TextInput({ id, value, max, onChange, type = "text", placeholder }: { id: string; value: string | undefined; max: number; onChange: (v: string) => void; type?: "text" | "email"; placeholder?: string }) {
+  return <input id={id} className="field field-block" type={type} value={value ?? ""} maxLength={max} placeholder={placeholder} spellCheck={false} autoComplete="off" onChange={(e) => onChange(e.target.value)} />;
 }
 
 function FormField({ id, label, error = null, children }: { id: string; label: string; error?: string | null; children: ReactNode }) {
