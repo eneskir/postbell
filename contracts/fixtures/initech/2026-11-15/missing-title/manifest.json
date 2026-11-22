@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "initech-2026-11-15-missing-title",
+  "brand": "initech",
+  "date": "2026-11-15",
+  "language": "en",
+  "approval": "approved",
+  "files": [
+    {
+      "id": "main",
+      "kind": "image",
+      "role": "main",
+      "path": "images/main-4x5.png",
+      "width": 80,
+      "height": 100
+    },
+    {
+      "id": "detail",
+      "kind": "image",
+      "role": "detail",
+      "path": "images/detail-1x1.png",
+      "width": 100,
+      "height": 100
+    }
+  ],
+  "entries": [
+    {
+      "platform": "instagram-post",
+      "file": "main",
+      "text": "Title field is missing.",
+      "aiLabel": false
+    },
+    {
+      "platform": "pinterest",
+      "file": "main",
+      "text": "Title field is missing.",
+      "aiLabel": false
+    },
+    {
+      "platform": "x",
+      "file": "detail",
+      "text": "Title field is missing.",
+      "aiLabel": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Sample museum, artwork page",
+      "url": "https://example.com/artwork/1",
+      "license": "CC0-1.0"
+    }
+  ],
+  "aiUsage": {
+    "voice": false,
+    "visuals": false,
+    "text": true
+  }
+}

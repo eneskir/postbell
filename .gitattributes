@@ -1,0 +1,3 @@
+# The repo stores LF. On Windows some tools silently write CRLF; git converts text files to LF on commit and leaves
+# binary files alone.
+* text=auto eol=lf

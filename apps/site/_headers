@@ -1,0 +1,11 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=(), browsing-topics=()
+  # Same-origin resources only; no inline script or style. Scripts Cloudflare injects on the free plan (bot checks)
+  # are blocked too (a harmless CSP error in the console). Web Analytics is off under the zone's Speed > Real user
+  # monitoring; if turned on, this rule blocks it as well.
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin

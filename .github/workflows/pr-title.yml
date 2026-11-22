@@ -1,0 +1,27 @@
+name: PR title
+
+# Its own workflow so that editing the title reruns it at once; editing a pull request
+# does not rerun Check, and Check takes minutes on Windows.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The title is passed through the environment, never pasted into the command,
+      # so a crafted title cannot change what runs.
+      - name: Pull request title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: python3 tools/check_pr_title.py

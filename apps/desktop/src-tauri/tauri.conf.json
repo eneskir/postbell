@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Postbell",
+  "version": "../package.json",
+  "identifier": "app.postbell",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "Postbell",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1200,
+        "minHeight": 640,
+        "center": true,
+        "decorations": false,
+        "shadow": true,
+        "visible": false,
+        "backgroundColor": "#191919"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: http://postbell-file.localhost; media-src http://postbell-file.localhost"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/postbell-logo-32.png", "icons/postbell-logo-128.png", "icons/postbell-logo-256.png", "icons/postbell-logo.ico"],
+    "publisher": "Enes Kır",
+    "copyright": "© 2026 Enes Kır"
+  }
+}

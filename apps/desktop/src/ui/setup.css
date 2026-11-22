@@ -1,0 +1,125 @@
+.setup {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.setup-bar {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  height: var(--layout-bar-height);
+}
+
+.setup-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-l);
+  min-height: 0;
+  padding: 0 var(--space-2xl) var(--space-2xl);
+}
+
+.setup-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-l);
+  min-height: 0;
+}
+
+.setup-logo {
+  flex: none;
+  width: var(--size-setup-logo);
+  height: var(--size-setup-logo);
+}
+
+.setup-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  align-self: stretch;
+}
+
+.setup-title {
+  margin: 0;
+  font: var(--text-heading);
+  overflow-wrap: anywhere;
+}
+
+.setup-line {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.setup-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: var(--size-control);
+  font: var(--text-label);
+}
+
+.setup-check input {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--size-icon);
+  height: var(--size-icon);
+  margin: 0;
+  border-radius: var(--radius-s);
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+  appearance: none;
+}
+
+.setup-check input:checked {
+  background: var(--color-accent);
+  box-shadow: none;
+}
+
+.setup-check input:checked::after {
+  content: "✓";
+  color: var(--color-on-accent);
+  font: var(--text-caption);
+}
+
+.setup-check:has(input:disabled) {
+  opacity: var(--opacity-disabled);
+}
+
+.setup-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.setup-actions-busy {
+  gap: var(--space-l);
+}
+
+.setup-progress {
+  flex: 1;
+  height: var(--size-progress);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+}
+
+.setup-progress-fill {
+  width: calc(var(--progress) * 100%);
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width var(--motion-fade);
+}
+
+.setup .window-button:disabled {
+  opacity: var(--opacity-disabled);
+  pointer-events: none;
+}

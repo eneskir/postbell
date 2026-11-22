@@ -1,0 +1,184 @@
+.accounts {
+  gap: var(--space-l);
+}
+
+.account-table {
+  align-self: stretch;
+}
+
+.account-head,
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  padding: 0 var(--space-xs);
+}
+
+.account-head {
+  height: var(--size-group-label);
+  box-shadow: inset 0 -1px 0 var(--color-border);
+  color: var(--color-text-muted);
+  font: var(--text-caption);
+}
+
+.account-head > span {
+  color: inherit;
+  font: inherit;
+}
+
+.account-row {
+  position: relative;
+  height: var(--size-row);
+  border-radius: var(--radius-s);
+}
+
+.account-row:hover {
+  background: var(--color-surface-raised);
+}
+
+.account-row-selected,
+.account-row-selected:hover {
+  background: var(--color-selected);
+}
+
+.account-row:has(.account-row-main:focus-visible) {
+  outline: 2px solid var(--color-text);
+  outline-offset: -2px;
+}
+
+.account-network {
+  flex: none;
+  width: var(--size-cell-network);
+  overflow: hidden;
+  color: var(--color-text);
+  font: var(--text-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-handle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font: var(--text-body-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-row-missing .account-handle {
+  color: var(--color-text-muted);
+}
+
+.account-language {
+  flex: none;
+  width: var(--size-cell-language);
+  color: var(--color-text-muted);
+  font: var(--text-label);
+}
+
+.account-action {
+  display: flex;
+  flex: none;
+  width: var(--size-cell-add);
+}
+
+.account-row-main {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-row-main::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.account-row-main:focus-visible {
+  outline: none;
+}
+
+.account-add {
+  color: var(--color-text);
+  font: var(--text-label);
+}
+
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.form-field-label {
+  color: var(--color-text-muted);
+  font: var(--text-label);
+}
+
+.form-field-error {
+  color: var(--color-danger);
+  font: var(--text-caption);
+}
+
+.field-block {
+  width: 100%;
+}
+
+.field-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-select-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.field-select select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.field-select:has(select:focus-visible) {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.field-select[data-invalid] {
+  box-shadow: inset 0 0 0 1px var(--color-danger);
+}
+
+.account-form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.account-form-end {
+  margin-left: auto;
+}

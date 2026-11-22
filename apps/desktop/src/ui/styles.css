@@ -1,0 +1,55 @@
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: var(--text-body);
+}
+
+::selection {
+  background: var(--color-selected);
+  color: var(--color-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+/* The main area takes focus only as the return point when the panel closes; it is not a control, so no ring. */
+.page:focus {
+  outline: none;
+}
+
+button {
+  font: inherit;
+}
+
+.dev-dump {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: var(--space-2xs) var(--space-m);
+  margin: 0;
+}
+
+.dev-dump dt {
+  color: var(--color-text-muted);
+}
+
+.dev-dump dd {
+  margin: 0;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.danger {
+  color: var(--color-danger);
+}

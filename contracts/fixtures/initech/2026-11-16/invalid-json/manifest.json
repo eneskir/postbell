@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "initech-2026-11-16-invalid-json",
+  "brand": "initech",
+  "date": "2026-11-16",
+  "language": "en",
+  "title": "Broken JSON",
+  "approval": "approved",
+  "files": [
+    {
+      "id": "main",
+      "kind": "image",
+      "role": "main",
+      "path": "images/main-4x5.png",
+      "width": 80,
+      "height": 100
+    },
+    {
+      "id": "detail",
+      "kind": "image",
+      "role": "detail",
+      "path": "images/detail-1x1.png",
+      "width": 100,
+      "height": 100
+    }
+  ],
+  "entries": [
+    {
+      "platform": "

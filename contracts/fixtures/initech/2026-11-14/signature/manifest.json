@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "initech-2026-11-14-signature",
+  "brand": "initech",
+  "date": "2026-11-14",
+  "language": "en",
+  "title": "A signature under the varnish",
+  "approval": "approved",
+  "files": [
+    {
+      "id": "main",
+      "kind": "video",
+      "role": "main",
+      "path": "main.mp4",
+      "width": 1080,
+      "height": 1920,
+      "durationSec": 42.5
+    },
+    {
+      "id": "card",
+      "kind": "image",
+      "role": "card",
+      "path": "images/card-16x9.png",
+      "width": 160,
+      "height": 90
+    }
+  ],
+  "entries": [
+    {
+      "platform": "tiktok",
+      "file": "main",
+      "text": "Someone signed it twice.",
+      "aiLabel": true
+    },
+    {
+      "platform": "instagram-reels",
+      "file": "main",
+      "text": "Someone signed it twice.",
+      "aiLabel": true
+    },
+    {
+      "platform": "youtube-shorts",
+      "file": "main",
+      "text": "Someone signed it twice.",
+      "aiLabel": true
+    },
+    {
+      "platform": "x",
+      "file": "card",
+      "text": "Someone signed it twice.",
+      "aiLabel": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Sample museum, artwork page",
+      "url": "https://example.com/artwork/1",
+      "license": "CC0-1.0"
+    }
+  ],
+  "aiUsage": {
+    "voice": true,
+    "visuals": false,
+    "text": true
+  }
+}

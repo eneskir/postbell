@@ -1,0 +1,5 @@
+# The compiler the shell is built and tested with; CI installs the same one instead of
+# whatever the runner image carries. rustup finds this file from apps/desktop and src-tauri.
+[toolchain]
+channel = "1.95.0"
+profile = "minimal"

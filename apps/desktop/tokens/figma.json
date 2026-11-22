@@ -1,0 +1,226 @@
+{
+  "source": "Figma «Postbell»: page «90 Kütüphane» and local variables",
+  "variables": [
+    {
+      "name": "color/accent",
+      "type": "COLOR",
+      "value": "#e6e6e6"
+    },
+    {
+      "name": "color/bg",
+      "type": "COLOR",
+      "value": "#191919"
+    },
+    {
+      "name": "color/border",
+      "type": "COLOR",
+      "value": "#373737"
+    },
+    {
+      "name": "color/border-strong",
+      "type": "COLOR",
+      "value": "#7a7a7a"
+    },
+    {
+      "name": "color/canvas",
+      "type": "COLOR",
+      "value": "#2b2b2b"
+    },
+    {
+      "name": "color/danger",
+      "type": "COLOR",
+      "value": "#ffa59c"
+    },
+    {
+      "name": "color/danger-soft",
+      "type": "COLOR",
+      "value": "#3b1c19"
+    },
+    {
+      "name": "color/on-accent",
+      "type": "COLOR",
+      "value": "#191919"
+    },
+    {
+      "name": "color/on-window-close",
+      "type": "COLOR",
+      "value": "#ffffff"
+    },
+    {
+      "name": "color/paper",
+      "type": "COLOR",
+      "value": "#f2f2f2"
+    },
+    {
+      "name": "color/sample/brand-1",
+      "type": "COLOR",
+      "value": "#e0b354"
+    },
+    {
+      "name": "color/sample/brand-2",
+      "type": "COLOR",
+      "value": "#7c6cf2"
+    },
+    {
+      "name": "color/selected",
+      "type": "COLOR",
+      "value": "#373737"
+    },
+    {
+      "name": "color/success",
+      "type": "COLOR",
+      "value": "#86e3ad"
+    },
+    {
+      "name": "color/success-soft",
+      "type": "COLOR",
+      "value": "#16301f"
+    },
+    {
+      "name": "color/surface",
+      "type": "COLOR",
+      "value": "#202020"
+    },
+    {
+      "name": "color/surface-raised",
+      "type": "COLOR",
+      "value": "#2c2c2c"
+    },
+    {
+      "name": "color/text",
+      "type": "COLOR",
+      "value": "#e6e6e6"
+    },
+    {
+      "name": "color/text-muted",
+      "type": "COLOR",
+      "value": "#a0a0a0"
+    },
+    {
+      "name": "color/warning",
+      "type": "COLOR",
+      "value": "#f7cb6b"
+    },
+    {
+      "name": "color/warning-soft",
+      "type": "COLOR",
+      "value": "#382b10"
+    },
+    {
+      "name": "color/window-close",
+      "type": "COLOR",
+      "value": "#e81123"
+    },
+    {
+      "name": "radius/full",
+      "type": "FLOAT",
+      "value": 999
+    },
+    {
+      "name": "radius/l",
+      "type": "FLOAT",
+      "value": 8
+    },
+    {
+      "name": "radius/m",
+      "type": "FLOAT",
+      "value": 6
+    },
+    {
+      "name": "radius/s",
+      "type": "FLOAT",
+      "value": 4
+    },
+    {
+      "name": "size/control",
+      "type": "FLOAT",
+      "value": 32
+    },
+    {
+      "name": "space/2xl",
+      "type": "FLOAT",
+      "value": 40
+    },
+    {
+      "name": "space/2xs",
+      "type": "FLOAT",
+      "value": 4
+    },
+    {
+      "name": "space/l",
+      "type": "FLOAT",
+      "value": 24
+    },
+    {
+      "name": "space/m",
+      "type": "FLOAT",
+      "value": 16
+    },
+    {
+      "name": "space/s",
+      "type": "FLOAT",
+      "value": 12
+    },
+    {
+      "name": "space/xl",
+      "type": "FLOAT",
+      "value": 32
+    },
+    {
+      "name": "space/xs",
+      "type": "FLOAT",
+      "value": 8
+    }
+  ],
+  "textStyles": [
+    {
+      "name": "text/body",
+      "family": "Inter",
+      "style": "Regular",
+      "size": 14,
+      "lineHeight": 20
+    },
+    {
+      "name": "text/body-strong",
+      "family": "Inter",
+      "style": "Semi Bold",
+      "size": 14,
+      "lineHeight": 20
+    },
+    {
+      "name": "text/caption",
+      "family": "Inter",
+      "style": "Medium",
+      "size": 12,
+      "lineHeight": 16
+    },
+    {
+      "name": "text/display",
+      "family": "Inter",
+      "style": "Bold",
+      "size": 32,
+      "lineHeight": 40
+    },
+    {
+      "name": "text/heading",
+      "family": "Inter",
+      "style": "Semi Bold",
+      "size": 20,
+      "lineHeight": 28
+    },
+    {
+      "name": "text/label",
+      "family": "Inter",
+      "style": "Medium",
+      "size": 13,
+      "lineHeight": 18
+    },
+    {
+      "name": "text/title",
+      "family": "Inter",
+      "style": "Semi Bold",
+      "size": 16,
+      "lineHeight": 24
+    }
+  ]
+}

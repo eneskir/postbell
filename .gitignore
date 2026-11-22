@@ -1,0 +1,50 @@
+# Dependencies and build output (regenerated)
+node_modules/
+dist/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+__pycache__/
+*.log
+
+# Credential files
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.npmrc
+.dev.vars
+key.properties
+*.jks
+*.keystore
+*.pem
+*.p12
+*.key
+id_rsa*
+id_ed25519*
+.git-credentials
+.credentials.json
+credentials.json
+*service-account*.json
+*firebase-adminsdk*.json
+
+# Claude Code's local settings file (machine-specific)
+.claude/settings.local.json
+
+# Root notes carry personal names and stay untracked: a name in git history cannot be removed.
+# Repository documents are let in one by one.
+/*.md
+!/README.md
+!/README.tr.md
+!/AGENTS.md
+!/CLAUDE.md
+!/CONTRIBUTING.md
+!/SECURITY.md
+!/TRADEMARKS.md
+!/THIRD-PARTY-NOTICES.md
+
+# Internal documents stay on disk, untracked: plans, verification logs, the old script archive.
+/plans/
+/docs/verification/
+/archive/
+

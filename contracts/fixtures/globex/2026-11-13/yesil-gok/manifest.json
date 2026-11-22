@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "globex-2026-11-13-yesil-gok",
+  "brand": "globex",
+  "date": "2026-11-13",
+  "language": "tr",
+  "title": "Bu gök neden yeşil",
+  "approval": "approved",
+  "files": [
+    {
+      "id": "main",
+      "kind": "image",
+      "role": "main",
+      "path": "images/main-4x5.png",
+      "width": 80,
+      "height": 100
+    },
+    {
+      "id": "detail",
+      "kind": "image",
+      "role": "detail",
+      "path": "images/detail-1x1.png",
+      "width": 100,
+      "height": 100
+    }
+  ],
+  "entries": [
+    {
+      "platform": "instagram-post",
+      "file": "main",
+      "text": "Gök bir zamanlar maviydi.",
+      "aiLabel": false
+    },
+    {
+      "platform": "pinterest",
+      "file": "main",
+      "text": "Gök bir zamanlar maviydi.",
+      "aiLabel": false
+    },
+    {
+      "platform": "x",
+      "file": "detail",
+      "text": "Gök bir zamanlar maviydi.",
+      "aiLabel": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Örnek müze, eser sayfası",
+      "url": "https://example.com/eser/1",
+      "license": "CC0-1.0"
+    }
+  ],
+  "aiUsage": {
+    "voice": false,
+    "visuals": false,
+    "text": true
+  }
+}

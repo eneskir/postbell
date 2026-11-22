@@ -1,0 +1,138 @@
+.share-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.share-preview {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--size-preview);
+  padding: var(--size-preview-inset);
+  border-radius: var(--radius-m);
+  background: var(--color-surface-raised);
+}
+
+.share-preview-media {
+  display: block;
+  width: min(100%, calc(var(--size-preview-media) * var(--preview-ratio)));
+  aspect-ratio: var(--preview-ratio);
+  border-radius: var(--radius-m);
+  object-fit: contain;
+}
+
+.share-preview-empty {
+  background: var(--color-border);
+}
+
+.share-file {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font: var(--text-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-file-missing {
+  color: var(--color-danger);
+}
+
+.share-divider {
+  flex: none;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--color-border);
+}
+
+.share-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.share-step-title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font: var(--text-label);
+}
+
+.share-caption {
+  margin: 0;
+  padding: var(--space-s);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-m);
+  color: var(--color-text);
+  font: var(--text-body);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.share-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.share-actions > .button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.copy-label {
+  position: relative;
+}
+
+.copy-tick {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: flex;
+  margin-left: var(--space-xs);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity var(--motion-fade);
+}
+
+.copy-tick-on {
+  opacity: 1;
+}
+
+.share-hint {
+  margin: 0;
+  color: var(--color-text);
+  font: var(--text-caption);
+}
+
+.share-hint-muted {
+  color: var(--color-text-muted);
+}
+
+.share-defer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.share-note {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-muted);
+  font: var(--text-caption);
+}
+
+.share-missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+}
+
+.share-missing-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font: var(--text-label);
+}

@@ -1,0 +1,58 @@
+:root {
+  --layout-nav-width: 240px;
+  --layout-panel-width: 400px;
+  --layout-bar-height: 40px;
+  --layout-content-max: 880px;
+
+  --size-icon: 16px;
+  --size-sticker: 24px;
+  --size-nav-action: 24px;
+  --size-menu: 200px;
+  --size-row: 40px;
+  --size-cell-time: 48px;
+  --size-cell-platform: 124px;
+  --size-cell-status: 104px;
+  --size-cell-action: 56px;
+  --size-cell-brand: 136px;
+  --size-cell-network: 128px;
+  --size-cell-language: 152px;
+  --size-cell-add: 88px;
+  --size-sticker-row: 20px;
+  --size-group-label: 32px;
+  --size-tag: 24px;
+  --size-window-button: 46px; /* Windows caption button width. */
+  --size-thumb-width: 24px;
+  --size-thumb-height: 32px;
+  --size-empty-art: 960px;
+  --size-tile: 40px;
+  --size-field-name: 320px;
+  --size-field-time: 96px;
+  --size-dialog: 440px;
+  --size-preview: 220px;
+  --size-preview-media: 200px;
+  --size-preview-inset: 10px;
+  --size-toast-inset: 10px;
+  --size-setup-logo: 48px;
+  --size-progress: 4px;
+
+  --skeleton-bar: 12px;
+  --skeleton-label-1: 48px;
+  --skeleton-label-2: 40px;
+  --skeleton-text-1: 280px;
+  --skeleton-text-2: 240px;
+  --skeleton-text-3: 200px;
+  --skeleton-text-4: 220px;
+  --skeleton-text-5: 260px;
+  --skeleton-meta-1: 96px;
+  --skeleton-meta-2: 64px;
+
+  --opacity-hover-primary: 0.88;
+  --opacity-disabled: 0.4;
+  --opacity-empty-art: 0.06;
+  --opacity-drag-source: 0.4;
+  --opacity-scrim: 0.6;
+  --opacity-drag-ghost: 0.9;
+
+  --motion-nav: 200ms ease-out;
+  --motion-fade: 120ms ease-out;
+}
