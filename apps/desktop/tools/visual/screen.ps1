@@ -1,4 +1,4 @@
-# Saves the whole virtual screen (all monitors) at full resolution: powershell -NoProfile -ExecutionPolicy Bypass -File ekran.ps1 <out.png>
+# Saves the whole virtual screen (all monitors) at full resolution: powershell -NoProfile -ExecutionPolicy Bypass -File screen.ps1 <out.png>
 param([string]$Out)
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 $b = [System.Windows.Forms.SystemInformation]::VirtualScreen

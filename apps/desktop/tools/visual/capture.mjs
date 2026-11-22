@@ -1,6 +1,6 @@
 // Captures the fake shell's screens in headless Edge over CDP, with no window: run `npm run dev`, then
 // `node tools/visual/capture.mjs <out folder> [--only <regex>]`.
-// File names follow the Figma frame (`today/V2 · nav-min` → `today_v2--nav-min.png`); app-only screens start with `uygulama--`.
+// File names follow the Figma frame (`today/V2 · nav-min` → `today_v2--nav-min.png`); app-only screens start with `app--`.
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -61,9 +61,9 @@ await send("Page.enable");
 await send("Runtime.enable");
 await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 await send("Emulation.setFocusEmulationEnabled", { enabled: true });
-// The clock starts at 14:20 on 2026-11-12 like the Figma mockups, or at `saat=HH:MM:ss` from the URL; the app never reads `saat`.
+// The clock starts at 14:20 on 2026-11-12 like the Figma mockups, or at `clock=HH:MM:ss` from the URL; the app never reads `clock`.
 await send("Page.addScriptToEvaluateOnNewDocument", {
-  source: `(() => { const R = Date; const [h, m, s] = (new URLSearchParams(location.search).get("saat") ?? "14:20:00").split(":").map(Number); const off = new R(2026, 10, 12, h, m, s || 0).getTime() - R.now(); class D extends R { constructor(...a) { if (a.length === 0) super(R.now() + off); else super(...a); } static now() { return R.now() + off; } } globalThis.Date = D; })();`,
+  source: `(() => { const R = Date; const [h, m, s] = (new URLSearchParams(location.search).get("clock") ?? "14:20:00").split(":").map(Number); const off = new R(2026, 10, 12, h, m, s || 0).getTime() - R.now(); class D extends R { constructor(...a) { if (a.length === 0) super(R.now() + off); else super(...a); } static now() { return R.now() + off; } } globalThis.Date = D; })();`,
 });
 // Headless Edge denies clipboard writes unless granted.
 await send("Browser.grantPermissions", { origin: new URL(BASE).origin, permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"] }).catch((e) => say("clipboard permission failed:", e.message));
@@ -199,10 +199,10 @@ const scenes = [
     await away();
   }],
   ["today_v2--nav-resize-hover", "", async () => { await open(); await ungroup(); await away(); await hover(".nav-handle"); }],
-  ["today_v2--nav-group-drag", "?kayit=gruplar", async () => { await open(); const p = await at(".nav-group-toggle", "Müşteri B"); await dragTo(p, p.x + 96, 235); return cancelDrag; }],
+  ["today_v2--nav-group-drag", "?store=groups", async () => { await open(); const p = await at(".nav-group-toggle", "Müşteri B"); await dragTo(p, p.x + 96, 235); return cancelDrag; }],
   ["contents_v1--nav-collapsed", "", async () => { await open("Initech", "İçerikler"); await ungroup(); await collapse(); await away(); }],
   ["settings_v1--nav-collapsed", "", async () => { await open(); await ungroup(); await tap(".nav-row", "Ayarlar"); await collapse(); await away(); }],
-  ["uygulama--surukle-rozet-ustunde", "", async () => {
+  ["app--drag-over-badge", "", async () => {
     await open();
     const p = await at(".nav-brand", "Globex");
     const q = await at(".nav-brand", "Initech");
@@ -210,10 +210,10 @@ const scenes = [
     say("  check:", await ev(`(() => { const r = document.querySelector('.nav-brand[data-brand="initech"]'); const row = r.closest(".nav-brand-row"); const b = r.querySelector(".nav-badge").getBoundingClientRect(); return "badge right " + Math.round(b.right) + ", ⋯ opacity " + getComputedStyle(row.querySelector(".nav-actions")).opacity + ", row background " + getComputedStyle(r).backgroundColor; })()`));
     return cancelDrag;
   }],
-  ["contents_v1--empty", "?paket=bos", async () => { await open("Initech", "İçerikler"); await away(); }],
-  ["contents_v1--error", "?paket=yok", async () => { await open("Initech", "İçerikler"); await away(); }],
-  ["uygulama--icerikler-okunamaz", "?paket=okunamaz", async () => { await open("Initech", "İçerikler"); await away(); }],
-  ["uygulama--icerikler-reddedilen", "", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["contents_v1--empty", "?packages=empty", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["contents_v1--error", "?packages=missing", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["app--contents-unreadable", "?packages=unreadable", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["app--contents-rejected", "", async () => { await open("Initech", "İçerikler"); await away(); }],
   ["brand-new_v1--default", "", async () => { await tap(".nav-row", "Marka ekle"); await away(); }],
   ["brand-settings_v1--default", "", async () => { await settings(); await away(); }],
   ["brand-settings_v1--remove-confirm", "", async () => { await settings(); await tap("button", "Kaldır…"); await away(); }],
@@ -234,14 +234,14 @@ const scenes = [
     await ev(`document.activeElement.blur()`);
     await away();
   }],
-  ["uygulama--hesapsiz-marka-saatleri", "", async () => { await settings("Globex"); await away(); }],
+  ["app--brand-times-no-accounts", "", async () => { await settings("Globex"); await away(); }],
   ["today_v2--default", "", async () => { await open(); await ungroup(); await row("09:00"); await away(); }],
   ["today_v2--no-selection", "", async () => { await open(); await ungroup(); await away(); }],
-  ["today_v2--empty", "?paket=gelecek", async () => { await open(); await ungroup(); await away(); }],
-  ["today_v2--brand-created", "?paket=gelecek", async () => { await ungroup(); await open("Globex"); await away(); }],
-  ["today_v2--loading", "?paket=bekle", async () => { await open(); await ungroup(); await away(); }],
-  ["today_v2--error", "?kayit=bozuk", async () => { await away(); }],
-  ["today_v2--file-missing", "?paket=dosyasiz", async () => { await open(); await ungroup(); await row("09:00"); await away(); }],
+  ["today_v2--empty", "?packages=future", async () => { await open(); await ungroup(); await away(); }],
+  ["today_v2--brand-created", "?packages=future", async () => { await ungroup(); await open("Globex"); await away(); }],
+  ["today_v2--loading", "?packages=wait", async () => { await open(); await ungroup(); await away(); }],
+  ["today_v2--error", "?store=corrupt", async () => { await away(); }],
+  ["today_v2--file-missing", "?packages=no-files", async () => { await open(); await ungroup(); await row("09:00"); await away(); }],
   ["today_v2--account-missing", "", async () => { await ungroup(); await open("Globex"); await row("X"); await away(); }],
   ["today_v2--hover-focus", "", async () => {
     await open();
@@ -255,14 +255,14 @@ const scenes = [
   ["today_v2--unscheduled-selected", "", async () => { await open(); await ungroup(); await clearTime("TikTok"); await row("TikTok"); await away(); }],
   ["today_v2--toast", "", async () => { await open(); await ungroup(); await row("09:00"); await tap("aside.panel button", "Metni kopyala"); await sleep(200); await away(); }],
   ["today-all_v1--default", "", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await away(); }],
-  ["today-all_v1--empty", "?paket=gelecek", async () => { await ungroup(); await expand(); await noDump(); await away(); }],
-  ["today-all_v1--loading", "?paket=bekle", async () => { await ungroup(); await expand(); await away(); }],
-  ["today-all_v1--first-run", "?kayit=yok", async () => { await noDump(); await away(); }],
-  ["uygulama--ana-sayfa-kismi-hata", "?paket=karisik", async () => { await ungroup(); await noDump(); await away(); }],
-  ["uygulama--ana-sayfa-kismi-hata-panel", "?paket=karisik", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await sleep(300); await away(); }],
+  ["today-all_v1--empty", "?packages=future", async () => { await ungroup(); await expand(); await noDump(); await away(); }],
+  ["today-all_v1--loading", "?packages=wait", async () => { await ungroup(); await expand(); await away(); }],
+  ["today-all_v1--first-run", "?store=missing", async () => { await noDump(); await away(); }],
+  ["app--home-partial-error", "?packages=mixed", async () => { await ungroup(); await noDump(); await away(); }],
+  ["app--home-partial-error-panel", "?packages=mixed", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await sleep(300); await away(); }],
   ["accounts_v1--default", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await away(); }],
-  ["accounts_v1--empty", "?paket=bos", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
-  ["accounts_v1--loading", "?paket=bekle", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
+  ["accounts_v1--empty", "?packages=empty", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
+  ["accounts_v1--loading", "?packages=wait", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
   ["accounts_v1--add-form", "", async () => { await ungroup(); await open("Globex", "Hesaplar"); await tap(".account-row", "Instagram"); await away(); }],
   ["accounts_v1--add-form-error", "", async () => {
     await ungroup();
@@ -279,7 +279,7 @@ const scenes = [
     await tap("aside.panel button", "Hesabı kaldır…");
     await away();
   }],
-  ["uygulama--hesap-ekle-genel", "", async () => {
+  ["app--account-add-general", "", async () => {
     await ungroup();
     await open("Initech", "Hesaplar");
     await tap(".accounts > .button", "Hesap ekle");
@@ -287,31 +287,31 @@ const scenes = [
     await pick("İçerik dili", "tr");
     await away();
   }],
-  ["uygulama--kapat-hover", "", async () => { await open(); await ungroup(); await row("09:00"); await hover(".window-button-close"); }],
-  ["setup_v1--welcome", "?kurulum=setup", async () => {}, SETUP],
-  ["setup_v1--installing", "?kurulum=setup&bekle", async () => { await press("Kur", ".setup-busy"); await sleep(400); }, SETUP],
-  ["setup_v1--done", "?kurulum=setup", async () => { await press("Kur", ".setup-done"); }, SETUP],
-  ["setup_v1--update", "?kurulum=setup&durum=older", async () => {}, SETUP],
-  ["setup_v1--same", "?kurulum=setup&durum=same", async () => {}, SETUP],
-  ["setup_v1--newer", "?kurulum=setup&durum=newer", async () => {}, SETUP],
-  ["setup_v1--error", "?kurulum=setup&hata=SETUP_APP_RUNNING", async () => { await press("Kur", ".setup-error"); }, SETUP],
-  ["uninstall_v1--confirm", "?kurulum=uninstall", async () => {}, SETUP],
-  ["uninstall_v1--done", "?kurulum=uninstall", async () => { await press("Kaldır", ".setup-done"); }, SETUP],
-  ["uninstall_v1--error", "?kurulum=uninstall&hata=UNINSTALL_DIR_LOCKED", async () => { await press("Kaldır", ".setup-error"); }, SETUP],
+  ["app--close-hover", "", async () => { await open(); await ungroup(); await row("09:00"); await hover(".window-button-close"); }],
+  ["setup_v1--welcome", "?setup=setup", async () => {}, SETUP],
+  ["setup_v1--installing", "?setup=setup&wait", async () => { await press("Kur", ".setup-busy"); await sleep(400); }, SETUP],
+  ["setup_v1--done", "?setup=setup", async () => { await press("Kur", ".setup-done"); }, SETUP],
+  ["setup_v1--update", "?setup=setup&installed=older", async () => {}, SETUP],
+  ["setup_v1--same", "?setup=setup&installed=same", async () => {}, SETUP],
+  ["setup_v1--newer", "?setup=setup&installed=newer", async () => {}, SETUP],
+  ["setup_v1--error", "?setup=setup&error=SETUP_APP_RUNNING", async () => { await press("Kur", ".setup-error"); }, SETUP],
+  ["uninstall_v1--confirm", "?setup=uninstall", async () => {}, SETUP],
+  ["uninstall_v1--done", "?setup=uninstall", async () => { await press("Kaldır", ".setup-done"); }, SETUP],
+  ["uninstall_v1--error", "?setup=uninstall&error=UNINSTALL_DIR_LOCKED", async () => { await press("Kaldır", ".setup-error"); }, SETUP],
   // «Saati geldi» must appear from the timer alone: shoot before 18:30, then wait past it with no input events.
-  ["uygulama--saati-geldi", "?saat=18:29:35", async () => {
+  ["app--time-due", "?clock=18:29:35", async () => {
     await open();
     await ungroup();
     await away();
-    const tik = `[...document.querySelectorAll(".share-row")].map((r) => r.innerText.replace(/\\s+/g, " ")).find((t) => t.includes("TikTok")) ?? "-"`;
+    const tiktokRow = `[...document.querySelectorAll(".share-row")].map((r) => r.innerText.replace(/\\s+/g, " ")).find((t) => t.includes("TikTok")) ?? "-"`;
     const clock = `new Date().toTimeString().slice(0, 8)`;
-    say("  before:", await ev(clock), "|", await ev(tik));
+    say("  before:", await ev(clock), "|", await ev(tiktokRow));
     const shot = await send("Page.captureScreenshot", { format: "png" });
-    writeFileSync(join(out, "uygulama--saati-geldi-once.png"), Buffer.from(shot.data, "base64"));
+    writeFileSync(join(out, "app--time-due-before.png"), Buffer.from(shot.data, "base64"));
     const left = await ev(`new Date(2026, 10, 12, 18, 30, 2).getTime() - Date.now()`);
     if (left < 0) throw new Error(`the before shot came after 18:30 (${await ev(clock)})`);
     await sleep(left);
-    say("  after:", await ev(clock), "|", await ev(tik));
+    say("  after:", await ev(clock), "|", await ev(tiktokRow));
   }],
 ];
 
@@ -342,7 +342,7 @@ for (const [name, query, setup, size] of scenes) {
     say("ERROR", name, String(e.message ?? e).slice(0, 300));
   }
 }
-writeFileSync(join(out, "cekim.txt"), log.join("\n") + "\n");
+writeFileSync(join(out, "capture.txt"), log.join("\n") + "\n");
 ws.close();
 proc.kill();
 await sleep(500);

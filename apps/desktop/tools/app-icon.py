@@ -73,7 +73,7 @@ def main():
             sheet.alpha_composite(images[s], (x, y0 + 20 + 256 + 24 + (64 - s)))
             x += s * 4 + 24
     b = io.BytesIO(); sheet.convert("RGB").save(b, "PNG")
-    write_atomic(os.path.join(target, f"{name}-onizleme-kucuk-olculer.png"), b.getvalue())
+    write_atomic(os.path.join(target, f"{name}-preview-small-sizes.png"), b.getvalue())
     print("written:", target)
 
 

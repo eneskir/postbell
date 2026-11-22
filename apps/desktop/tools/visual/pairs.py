@@ -1,11 +1,11 @@
-# Puts same-named Figma and app PNGs side by side: python -I -X utf8 tools/visual/pairs.py <folder with figma\ and uygulama\>
+# Puts same-named Figma and app PNGs side by side: python -I -X utf8 tools/visual/pairs.py <folder with figma\ and app\>
 import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 root = Path(sys.argv[1])
-fig, app, out = root / "figma", root / "uygulama", root / "ciftler"
+fig, app, out = root / "figma", root / "app", root / "pairs"
 out.mkdir(exist_ok=True)
 font = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 18)
 W, H, BAR = 720, 450, 32
@@ -36,6 +36,6 @@ cols = 2
 sheet = Image.new("RGB", (cols * tw, -(-len(pairs) // cols) * th), (0, 0, 0))
 for i, p in enumerate(pairs):
     sheet.paste(p.resize((tw, th), Image.LANCZOS), ((i % cols) * tw, (i // cols) * th))
-sheet.save(root / "genel-bakis.png")
+sheet.save(root / "overview.png")
 print(len(pairs), "pairs; without Figma:", [a.stem for a in sorted(app.glob("*.png")) if not (fig / a.name).exists()])
 print("Figma frames not captured in the app:", [f.stem for f in sorted(fig.glob("*.png")) if not (app / f.name).exists()])

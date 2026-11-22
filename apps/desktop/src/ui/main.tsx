@@ -14,7 +14,7 @@ import { App } from "./App.tsx";
 import { tauriPort } from "./port/tauri.ts";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
-const setup = inTauri ? getCurrentWindow().label === "setup" : new URLSearchParams(location.search).has("kurulum");
+const setup = inTauri ? getCurrentWindow().label === "setup" : new URLSearchParams(location.search).has("setup");
 
 async function app(): Promise<ReactNode> {
   if (setup) {
