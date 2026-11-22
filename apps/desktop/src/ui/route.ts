@@ -1,20 +1,12 @@
 import type { AccountDraft } from "../core/accounts.ts";
+import type { BrandPage, Place } from "../core/settings.ts";
 import type { AccountId, BrandId, ContentKey, ShareId } from "../core/shares.ts";
 import type { IconName, StickerName } from "./assets.gen.ts";
 import { text } from "./text.ts";
 
-export type BrandPage = "today" | "contents" | "calendar" | "accounts";
-export const BRAND_PAGES: readonly BrandPage[] = ["today", "contents", "calendar", "accounts"];
+export { BRAND_PAGES, HOME } from "../core/settings.ts";
 
-export type Route =
-  | { readonly kind: "home" }
-  | { readonly kind: "brand"; readonly brand: BrandId; readonly page: BrandPage }
-  | { readonly kind: "history" }
-  | { readonly kind: "settings" }
-  | { readonly kind: "brand-new"; readonly group?: string }
-  | { readonly kind: "brand-settings"; readonly brand: BrandId };
-
-export const HOME: Route = { kind: "home" };
+export type Route = Place | { readonly kind: "brand-new"; readonly group?: string };
 
 export type PanelState =
   | { readonly kind: "closed" }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { accountRows, addAccount, draftFor, draftOf, removeAccount, setupStepOf, updateAccount, type AccountDraft } from "../core/accounts.ts";
-import { alarmsOf, DEFAULT_NOTIFY } from "../core/alarms.ts";
+import { alarmsOf } from "../core/alarms.ts";
 import type { AppInfo, ParseResult } from "../core/app-info.ts";
 import { addBrand, removeBrand, type BrandDraft } from "../core/brands.ts";
 import type { Port, PortError, PortErrorCode } from "../core/port.ts";
@@ -237,7 +237,7 @@ export function App({ port }: { port: Port }) {
     if (!store || !packages) return;
     const names = new Map(store.brands.map((b) => [b.id, b.name]));
     const order = sidebarOrder(store).map((b) => b.id);
-    const plan = alarmPlan(alarmsOf(shares, order, DEFAULT_NOTIFY), shares, (b) => names.get(b) ?? b, instantOf);
+    const plan = alarmPlan(alarmsOf(shares, order, store.settings), shares, (b) => names.get(b) ?? b, instantOf);
     const key = JSON.stringify(plan);
     if (key === sentPlan.current) return;
     sentPlan.current = key;

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Account, AccountId, BrandId, ShareId, ShareRecord } from "./shares.ts";
+import { DEFAULT_SETTINGS } from "./settings.ts";
 import { canWrite, emptyStore, parseStoreText, serializeStore, withoutRecord, withRecord, type StoreFile } from "./store.ts";
 import { at, parseDate, parseTime, type LocalDate, type TimeOfDay } from "./time.ts";
 
@@ -26,7 +27,7 @@ const full: StoreFile = withRecord(
 );
 
 const FILE = `{
-  "version": 3,
+  "version": 4,
   "brands": [
     {
       "id": "initech",
@@ -65,7 +66,13 @@ const FILE = `{
       "at": "2026-11-11T14:20"
     }
   ],
-  "settings": {},
+  "settings": {
+    "notifyOnTime": true,
+    "reminderInterval": 30,
+    "startScreen": "home",
+    "launchAtLogin": false,
+    "closeToTray": true
+  },
   "sidebar": {
     "collapsed": false,
     "width": 240,
@@ -73,11 +80,19 @@ const FILE = `{
       "initech"
     ]
   },
-  "backup": {}
+  "backup": {},
+  "lastPage": {
+    "kind": "home"
+  }
 }
 `;
-// The same store as an older version wrote it: no backup state.
-const older = (v: 1 | 2, text = FILE) => text.replace('"version": 3', `"version": ${v}`).replace(',\n  "backup": {}', "");
+const SETTINGS_TEXT = /"settings": \{\n[^}]*\}/;
+const LAST_PAGE_TEXT = /,\n {2}"lastPage": \{\n[^}]*\}/;
+// The same store as an older version wrote it: no settings or last page, and before version 3 no backup state.
+const older = (v: 1 | 2 | 3, text = FILE) => {
+  const t = text.replace('"version": 4', `"version": ${v}`).replace(SETTINGS_TEXT, '"settings": {}').replace(LAST_PAGE_TEXT, "");
+  return v === 3 ? t : t.replace(',\n  "backup": {}', "");
+};
 
 test("store file: the written text matches the hand-written format and parses back to the same store", () => {
   assert.equal(serializeStore(full), FILE);
@@ -121,7 +136,7 @@ test("a broken file is unreadable and not writable", () => {
     [FILE.replace('        "initech"\n', '        "other"\n'), { kind: "unreadable", reason: "invalid-shape", path: "groups[0].brands[0]", rule: "brand-ref" }],
     [FILE.replace('"sticker": "camera"', '"sticker": "Camera"'), { kind: "unreadable", reason: "invalid-shape", path: "brands[0].sticker", rule: "pattern" }],
     [FILE.replace('      "sticker": "camera",\n', ""), { kind: "unreadable", reason: "invalid-shape", path: "brands[0].sticker", rule: "required" }],
-    [FILE.replace('"settings": {}', '"settings": {"unknown": 1}'), { kind: "unreadable", reason: "invalid-shape", path: "settings.unknown", rule: "additionalProperties" }],
+    [FILE.replace('"closeToTray": true', '"closeToTray": true, "unknown": 1'), { kind: "unreadable", reason: "invalid-shape", path: "settings.unknown", rule: "additionalProperties" }],
   ];
   for (const [text, expected] of cases) {
     const s = parseStoreText(text);
@@ -131,12 +146,12 @@ test("a broken file is unreadable and not writable", () => {
 });
 
 test("an unknown (newer) version is newer-version whatever its shape, and not writable", () => {
-  for (const text of ['{"version": 4}', '{"version": 7, "brands": "new shape"}']) {
+  for (const text of ['{"version": 5}', '{"version": 7, "brands": "new shape"}']) {
     const s = parseStoreText(text);
     assert.equal(s.kind, "newer-version");
     assert.equal(canWrite(s), false);
   }
-  assert.deepEqual(parseStoreText(FILE.replace('"version": 3', '"version": 0')), { kind: "unreadable", reason: "invalid-shape", path: "version", rule: "const" });
+  assert.deepEqual(parseStoreText(FILE.replace('"version": 4', '"version": 0')), { kind: "unreadable", reason: "invalid-shape", path: "version", rule: "const" });
 });
 
 test("one record per share: marking again replaces the old one", () => {
@@ -160,9 +175,9 @@ test("undo removes the record; without a record the same object returns (no writ
   assert.equal(withoutRecord(undone, id), undone);
 });
 
-test("version 1 and 2 files read as version 3 with no backup state, and are written back as version 3", () => {
-  assert.deepEqual(parseStoreText(older(1)), { kind: "ready", store: full });
-  assert.deepEqual(parseStoreText(older(2)), { kind: "ready", store: full });
+test("version 1 to 3 files read as version 4 with the default settings, and are written back as version 4", () => {
+  for (const v of [1, 2, 3] as const) assert.deepEqual(parseStoreText(older(v)), { kind: "ready", store: full });
+  assert.deepEqual(full.settings, DEFAULT_SETTINGS);
   assert.equal(serializeStore(full), FILE);
 });
 
@@ -175,7 +190,7 @@ test("version 3: the backup state is stored and read back the same, and checked"
     [text.replace('"pending": "changed-password"', '"pending": "lost"'), { kind: "unreadable", reason: "invalid-shape", path: "backup.pending", rule: "enum" }],
     [text.replace('"later": true', '"later": false'), { kind: "unreadable", reason: "invalid-shape", path: "backup.later", rule: "const" }],
     [text.replace('"last": "2026-11-11T14:20"', '"last": "2026-02-30T14:20"'), { kind: "unreadable", reason: "invalid-shape", path: "backup.last", rule: "calendar" }],
-    [text.replace('"version": 3', '"version": 2'), { kind: "unreadable", reason: "invalid-shape", path: "backup", rule: "additionalProperties" }],
+    [older(3, text).replace('"version": 3', '"version": 2'), { kind: "unreadable", reason: "invalid-shape", path: "backup", rule: "additionalProperties" }],
     [older(2).replace('"version": 2', '"version": 3'), { kind: "unreadable", reason: "invalid-shape", path: "backup", rule: "required" }],
   ];
   for (const [t, expected] of cases) assert.deepEqual(parseStoreText(t), expected);
@@ -208,6 +223,40 @@ test("version 2 fields are refused in a version 1 file, and checked in a version
     [text.replace('"note": "Creator account; Threads uses it"', '"note": ""'), { kind: "unreadable", reason: "invalid-shape", path: "accounts[0].note", rule: "minLength" }],
     [text.replace('"planned": "2026-11-11T14:20"', '"planned": "2026-02-30T14:20"'), { kind: "unreadable", reason: "invalid-shape", path: "records[0].planned", rule: "calendar" }],
     [text.replace('"planned": "2026-11-11T14:20"', '"planned": "tomorrow"'), { kind: "unreadable", reason: "invalid-shape", path: "records[0].planned", rule: "pattern" }],
+  ];
+  for (const [t, expected] of cases) assert.deepEqual(parseStoreText(t), expected);
+});
+
+test("version 4: changed settings are stored and read back the same; an absent one takes its default", () => {
+  const s: StoreFile = { ...full, settings: { notifyOnTime: false, reminderInterval: 120, startScreen: "last", launchAtLogin: true, closeToTray: false } };
+  assert.deepEqual(parseStoreText(serializeStore(s)), { kind: "ready", store: s });
+  const partial = FILE.replace(SETTINGS_TEXT, '"settings": {"reminderInterval": 60}');
+  assert.deepEqual(parseStoreText(partial), { kind: "ready", store: { ...full, settings: { ...DEFAULT_SETTINGS, reminderInterval: 60 } } });
+  const cases: Array<[string, unknown]> = [
+    [FILE.replace('"reminderInterval": 30', '"reminderInterval": 45'), { kind: "unreadable", reason: "invalid-shape", path: "settings.reminderInterval", rule: "enum" }],
+    [FILE.replace('"startScreen": "home"', '"startScreen": "calendar"'), { kind: "unreadable", reason: "invalid-shape", path: "settings.startScreen", rule: "enum" }],
+    [FILE.replace('"closeToTray": true', '"closeToTray": "yes"'), { kind: "unreadable", reason: "invalid-shape", path: "settings.closeToTray", rule: "type" }],
+    [FILE.replace('"version": 4', '"version": 3').replace(LAST_PAGE_TEXT, ""), { kind: "unreadable", reason: "invalid-shape", path: "settings.notifyOnTime", rule: "additionalProperties" }],
+  ];
+  for (const [t, expected] of cases) assert.deepEqual(parseStoreText(t), expected);
+});
+
+test("version 4: the last page is stored and read back the same, and checked", () => {
+  const initech = "initech" as BrandId;
+  for (const lastPage of [{ kind: "brand", brand: initech, page: "calendar" }, { kind: "brand-settings", brand: initech }, { kind: "history" }] as const) {
+    const s: StoreFile = { ...full, lastPage };
+    assert.deepEqual(parseStoreText(serializeStore(s)), { kind: "ready", store: s });
+  }
+  assert.deepEqual(parseStoreText(FILE.replace(LAST_PAGE_TEXT, "")), { kind: "ready", store: full }, "no last page is Ana sayfa");
+  const page = (json: string) => FILE.replace(LAST_PAGE_TEXT, `,\n  "lastPage": ${json}`);
+  const cases: Array<[string, unknown]> = [
+    [page('{"kind": "brand", "brand": "initech"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage", rule: "kind" }],
+    [page('{"kind": "home", "brand": "initech"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage", rule: "kind" }],
+    [page('{"kind": "brand-settings", "brand": "initech", "page": "today"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage", rule: "kind" }],
+    [page('{"kind": "brand", "brand": "other", "page": "today"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage.brand", rule: "brand-ref" }],
+    [page('{"kind": "brand-new"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage.kind", rule: "enum" }],
+    [page('{"kind": "brand", "brand": "initech", "page": "settings"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage.page", rule: "enum" }],
+    [older(3).replace('"backup": {}', '"backup": {},\n  "lastPage": {"kind": "home"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage", rule: "additionalProperties" }],
   ];
   for (const [t, expected] of cases) assert.deepEqual(parseStoreText(t), expected);
 });

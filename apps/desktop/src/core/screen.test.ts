@@ -20,6 +20,6 @@ test("a store with brands is ready with the parsed store", () => {
 
 test("broken, newer and shell errors give an error code and no store to write", () => {
   assert.deepEqual(loadStore(ok("{broken")), { screen: { kind: "error", code: "store-unreadable" }, store: null });
-  assert.deepEqual(loadStore(ok('{"version": 4}')), { screen: { kind: "error", code: "store-newer-version" }, store: null });
+  assert.deepEqual(loadStore(ok('{"version": 5}')), { screen: { kind: "error", code: "store-newer-version" }, store: null });
   assert.deepEqual(loadStore({ ok: false, error: { code: "store-read", detail: "access denied" } }), { screen: { kind: "error", code: "store-read" }, store: null });
 });

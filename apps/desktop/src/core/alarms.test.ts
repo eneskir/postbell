@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { alarmsOf, DEFAULT_NOTIFY, REMINDER_INTERVALS } from "./alarms.ts";
+import { alarmsOf } from "./alarms.ts";
+import { DEFAULT_SETTINGS, REMINDER_INTERVALS } from "./settings.ts";
 import type { Content } from "./manifest.ts";
 import { deriveShares, fileKeyOf, shareIdOf, type Account, type AccountId, type BrandId, type ContentId, type ShareRecord } from "./shares.ts";
 import { testContent } from "./test-content.ts";
@@ -28,7 +29,7 @@ const view = (list: ReturnType<typeof alarmsOf>) => list.map((a) => `${formatLoc
 
 test("a timed pending share gives two alarms: on time and one reminder interval later", () => {
   const all = shares([content(P, "today", "2026-11-12", ["tiktok"])], NOW("2026-11-12", "14:20"));
-  assert.deepEqual(view(alarmsOf(all, [P], DEFAULT_NOTIFY)), [
+  assert.deepEqual(view(alarmsOf(all, [P], DEFAULT_SETTINGS)), [
     "2026-11-12T18:30 initech/today/tiktok#due +0",
     "2026-11-12T19:00 initech/today/tiktok#reminder +30",
   ]);
@@ -38,7 +39,7 @@ test("a share whose file is missing still gives both alarms, so its time is not 
   const missingFiles = new Set([fileKeyOf(P, "today" as ContentId, "main.png")]);
   const all = deriveShares({ contents: [content(P, "today", "2026-11-12", ["tiktok"])], accounts: accounts(P), records: [], missingFiles, now: NOW("2026-11-12", "14:20") });
   assert.ok(all[0]!.blockers.includes("file-missing"));
-  assert.deepEqual(view(alarmsOf(all, [P], DEFAULT_NOTIFY)), [
+  assert.deepEqual(view(alarmsOf(all, [P], DEFAULT_SETTINGS)), [
     "2026-11-12T18:30 initech/today/tiktok#due +0",
     "2026-11-12T19:00 initech/today/tiktok#reminder +30",
   ]);
@@ -54,20 +55,20 @@ test("shared, skipped and untimed shares give no alarms", () => {
     ],
   );
   assert.deepEqual(
-    alarmsOf(all, [P], DEFAULT_NOTIFY).map((a) => a.id),
+    alarmsOf(all, [P], DEFAULT_SETTINGS).map((a) => a.id),
     ["initech/today/instagram-reels#due", "initech/today/instagram-reels#reminder"],
   );
 });
 
 test("notifications off gives an empty list", () => {
   const all = shares([content(P, "today", "2026-11-12", ["x", "tiktok"])], NOW("2026-11-12", "08:00"));
-  assert.ok(alarmsOf(all, [P], DEFAULT_NOTIFY).length > 0);
-  assert.deepEqual(alarmsOf(all, [P], { ...DEFAULT_NOTIFY, enabled: false }), []);
+  assert.ok(alarmsOf(all, [P], DEFAULT_SETTINGS).length > 0);
+  assert.deepEqual(alarmsOf(all, [P], { ...DEFAULT_SETTINGS, notifyOnTime: false }), []);
 });
 
 test("the reminder comes once, that many minutes after the planned time, for every option", () => {
   const all = shares([content(P, "today", "2026-11-12", ["x"])], NOW("2026-11-12", "08:00"));
-  const got = REMINDER_INTERVALS.map((remindAfter) => view(alarmsOf(all, [P], { enabled: true, remindAfter }).filter((a) => a.kind === "reminder")));
+  const got = REMINDER_INTERVALS.map((reminderInterval) => view(alarmsOf(all, [P], { notifyOnTime: true, reminderInterval }).filter((a) => a.kind === "reminder")));
   assert.deepEqual(got, [
     ["2026-11-12T09:15 initech/today/x#reminder +15"],
     ["2026-11-12T09:30 initech/today/x#reminder +30"],
@@ -78,8 +79,8 @@ test("the reminder comes once, that many minutes after the planned time, for eve
 
 test("the list does not depend on now: past and late shares keep their alarms (the shell skips the past)", () => {
   const contents = [content(P, "yesterday", "2026-11-11", ["x"])];
-  const morning = alarmsOf(shares(contents, NOW("2026-11-11", "08:00")), [P], DEFAULT_NOTIFY);
-  const nextDay = alarmsOf(shares(contents, NOW("2026-11-12", "14:20")), [P], DEFAULT_NOTIFY);
+  const morning = alarmsOf(shares(contents, NOW("2026-11-11", "08:00")), [P], DEFAULT_SETTINGS);
+  const nextDay = alarmsOf(shares(contents, NOW("2026-11-12", "14:20")), [P], DEFAULT_SETTINGS);
   assert.deepEqual(nextDay, morning);
   assert.equal(nextDay.length, 2);
 });
@@ -89,7 +90,7 @@ test("equal times sort by brand order, then format order; a brand not in the lis
     [content(O, "o1", "2026-11-12", ["x", "instagram-reels"]), content(P, "p1", "2026-11-12", ["instagram-reels", "x"])],
     NOW("2026-11-12", "08:00"),
   );
-  const due = (brands: readonly BrandId[]) => alarmsOf(all, brands, DEFAULT_NOTIFY).filter((a) => a.kind === "due").map((a) => a.id);
+  const due = (brands: readonly BrandId[]) => alarmsOf(all, brands, DEFAULT_SETTINGS).filter((a) => a.kind === "due").map((a) => a.id);
   assert.deepEqual(due([P, O]), ["initech/p1/x#due", "initech/p1/instagram-reels#due", "globex/o1/x#due", "globex/o1/instagram-reels#due"]);
   assert.deepEqual(due([O, P]).slice(0, 2), ["globex/o1/x#due", "globex/o1/instagram-reels#due"]);
   assert.deepEqual(due([P]), ["initech/p1/x#due", "initech/p1/instagram-reels#due"]);
