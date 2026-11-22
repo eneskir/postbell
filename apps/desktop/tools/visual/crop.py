@@ -1,4 +1,4 @@
-# Crops an image in virtual screen pixels: kirp.py <input> <output> x0 y0 x1 y1 [scale]
+# Crops an image in virtual screen pixels: crop.py <input> <output> x0 y0 x1 y1 [scale]
 import sys
 from PIL import Image
 src, out, *box = sys.argv[1:]

@@ -48,7 +48,7 @@ while not report.exists() and time.time() - t0 < 30:
 time.sleep(5)
 csv = OUT / "idle.csv"
 r = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(APP / "tools/self-test/idle.ps1"),
-                    "-Kok", str(p.pid), "-Cikti", str(csv), "-Sure", str(IDLE)], capture_output=True, text=True)
+                    "-Root", str(p.pid), "-Out", str(csv), "-Seconds", str(IDLE)], capture_output=True, text=True)
 subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True, text=True)
 if r.returncode != 0:
     say(f"  the sampling script failed: {r.stderr[-400:]}")

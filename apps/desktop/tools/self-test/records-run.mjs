@@ -24,7 +24,7 @@ if (!given) {
 
 const FIX = join(APP, "..", "..", "contracts/fixtures/initech").replaceAll("\\", "/");
 const base = join(tmpdir(), `postbell-records-run-${Date.now()}`);
-const data = join(base, "veri");
+const data = join(base, "data");
 mkdirSync(data, { recursive: true });
 const seed = {
   version: 1,

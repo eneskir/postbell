@@ -1,6 +1,6 @@
 // Captures the fake shell's screens in headless Edge over CDP, with no window: run `npm run dev`, then
 // `node tools/visual/capture.mjs <out folder> [--only <regex>]`.
-// File names follow the Figma frame (`today/V2 · nav-min` → `today_v2--nav-min.png`); app-only screens start with `uygulama--`.
+// File names follow the Figma frame (`today/V2 · nav-min` → `today_v2--nav-min.png`); app-only screens start with `app--`.
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -61,9 +61,9 @@ await send("Page.enable");
 await send("Runtime.enable");
 await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 await send("Emulation.setFocusEmulationEnabled", { enabled: true });
-// The clock starts at 14:20 on 2026-11-12 like the Figma mockups, or at `saat=HH:MM:ss` from the URL; the app never reads `saat`.
+// The clock starts at 14:20 on 2026-11-12 like the Figma mockups, or at `clock=HH:MM:ss` from the URL; the app never reads `clock`.
 await send("Page.addScriptToEvaluateOnNewDocument", {
-  source: `(() => { const R = Date; const [h, m, s] = (new URLSearchParams(location.search).get("saat") ?? "14:20:00").split(":").map(Number); const off = new R(2026, 10, 12, h, m, s || 0).getTime() - R.now(); class D extends R { constructor(...a) { if (a.length === 0) super(R.now() + off); else super(...a); } static now() { return R.now() + off; } } globalThis.Date = D; })();`,
+  source: `(() => { const R = Date; const [h, m, s] = (new URLSearchParams(location.search).get("clock") ?? "14:20:00").split(":").map(Number); const off = new R(2026, 10, 12, h, m, s || 0).getTime() - R.now(); class D extends R { constructor(...a) { if (a.length === 0) super(R.now() + off); else super(...a); } static now() { return R.now() + off; } } globalThis.Date = D; })();`,
 });
 // Headless Edge denies clipboard writes unless granted.
 await send("Browser.grantPermissions", { origin: new URL(BASE).origin, permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"] }).catch((e) => say("clipboard permission failed:", e.message));
@@ -202,7 +202,7 @@ const scenes = [
   ["today_v2--nav-group-drag", "?store=groups", async () => { await open(); const p = await at(".nav-group-toggle", "Müşteri B"); await dragTo(p, p.x + 96, 235); return cancelDrag; }],
   ["contents_v1--nav-collapsed", "", async () => { await open("Initech", "İçerikler"); await ungroup(); await collapse(); await away(); }],
   ["settings_v1--nav-collapsed", "", async () => { await open(); await ungroup(); await tap(".nav-row", "Ayarlar"); await collapse(); await away(); }],
-  ["uygulama--surukle-rozet-ustunde", "", async () => {
+  ["app--drag-over-badge", "", async () => {
     await open();
     const p = await at(".nav-brand", "Globex");
     const q = await at(".nav-brand", "Initech");
@@ -212,8 +212,8 @@ const scenes = [
   }],
   ["contents_v1--empty", "?packages=empty", async () => { await open("Initech", "İçerikler"); await away(); }],
   ["contents_v1--error", "?packages=missing", async () => { await open("Initech", "İçerikler"); await away(); }],
-  ["uygulama--icerikler-okunamaz", "?packages=unreadable", async () => { await open("Initech", "İçerikler"); await away(); }],
-  ["uygulama--icerikler-reddedilen", "", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["app--contents-unreadable", "?packages=unreadable", async () => { await open("Initech", "İçerikler"); await away(); }],
+  ["app--contents-rejected", "", async () => { await open("Initech", "İçerikler"); await away(); }],
   ["brand-new_v1--default", "", async () => { await tap(".nav-row", "Marka ekle"); await away(); }],
   ["brand-settings_v1--default", "", async () => { await settings(); await away(); }],
   ["brand-settings_v1--remove-confirm", "", async () => { await settings(); await tap("button", "Kaldır…"); await away(); }],
@@ -234,7 +234,7 @@ const scenes = [
     await ev(`document.activeElement.blur()`);
     await away();
   }],
-  ["uygulama--hesapsiz-marka-saatleri", "", async () => { await settings("Globex"); await away(); }],
+  ["app--brand-times-no-accounts", "", async () => { await settings("Globex"); await away(); }],
   ["today_v2--default", "", async () => { await open(); await ungroup(); await row("09:00"); await away(); }],
   ["today_v2--no-selection", "", async () => { await open(); await ungroup(); await away(); }],
   ["today_v2--empty", "?packages=future", async () => { await open(); await ungroup(); await away(); }],
@@ -258,8 +258,8 @@ const scenes = [
   ["today-all_v1--empty", "?packages=future", async () => { await ungroup(); await expand(); await noDump(); await away(); }],
   ["today-all_v1--loading", "?packages=wait", async () => { await ungroup(); await expand(); await away(); }],
   ["today-all_v1--first-run", "?store=missing", async () => { await noDump(); await away(); }],
-  ["uygulama--ana-sayfa-kismi-hata", "?packages=mixed", async () => { await ungroup(); await noDump(); await away(); }],
-  ["uygulama--ana-sayfa-kismi-hata-panel", "?packages=mixed", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await sleep(300); await away(); }],
+  ["app--home-partial-error", "?packages=mixed", async () => { await ungroup(); await noDump(); await away(); }],
+  ["app--home-partial-error-panel", "?packages=mixed", async () => { await ungroup(); await expand(); await row("09:00"); await noDump(); await sleep(300); await away(); }],
   ["accounts_v1--default", "", async () => { await ungroup(); await open("Initech", "Hesaplar"); await away(); }],
   ["accounts_v1--empty", "?packages=empty", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
   ["accounts_v1--loading", "?packages=wait", async () => { await ungroup(); await open("Globex", "Hesaplar"); await away(); }],
@@ -279,7 +279,7 @@ const scenes = [
     await tap("aside.panel button", "Hesabı kaldır…");
     await away();
   }],
-  ["uygulama--hesap-ekle-genel", "", async () => {
+  ["app--account-add-general", "", async () => {
     await ungroup();
     await open("Initech", "Hesaplar");
     await tap(".accounts > .button", "Hesap ekle");
@@ -287,7 +287,7 @@ const scenes = [
     await pick("İçerik dili", "tr");
     await away();
   }],
-  ["uygulama--kapat-hover", "", async () => { await open(); await ungroup(); await row("09:00"); await hover(".window-button-close"); }],
+  ["app--close-hover", "", async () => { await open(); await ungroup(); await row("09:00"); await hover(".window-button-close"); }],
   ["setup_v1--welcome", "?setup=setup", async () => {}, SETUP],
   ["setup_v1--installing", "?setup=setup&wait", async () => { await press("Kur", ".setup-busy"); await sleep(400); }, SETUP],
   ["setup_v1--done", "?setup=setup", async () => { await press("Kur", ".setup-done"); }, SETUP],
@@ -299,19 +299,19 @@ const scenes = [
   ["uninstall_v1--done", "?setup=uninstall", async () => { await press("Kaldır", ".setup-done"); }, SETUP],
   ["uninstall_v1--error", "?setup=uninstall&error=UNINSTALL_DIR_LOCKED", async () => { await press("Kaldır", ".setup-error"); }, SETUP],
   // «Saati geldi» must appear from the timer alone: shoot before 18:30, then wait past it with no input events.
-  ["uygulama--saati-geldi", "?saat=18:29:35", async () => {
+  ["app--time-due", "?clock=18:29:35", async () => {
     await open();
     await ungroup();
     await away();
-    const tik = `[...document.querySelectorAll(".share-row")].map((r) => r.innerText.replace(/\\s+/g, " ")).find((t) => t.includes("TikTok")) ?? "-"`;
+    const tiktokRow = `[...document.querySelectorAll(".share-row")].map((r) => r.innerText.replace(/\\s+/g, " ")).find((t) => t.includes("TikTok")) ?? "-"`;
     const clock = `new Date().toTimeString().slice(0, 8)`;
-    say("  before:", await ev(clock), "|", await ev(tik));
+    say("  before:", await ev(clock), "|", await ev(tiktokRow));
     const shot = await send("Page.captureScreenshot", { format: "png" });
-    writeFileSync(join(out, "uygulama--saati-geldi-once.png"), Buffer.from(shot.data, "base64"));
+    writeFileSync(join(out, "app--time-due-before.png"), Buffer.from(shot.data, "base64"));
     const left = await ev(`new Date(2026, 10, 12, 18, 30, 2).getTime() - Date.now()`);
     if (left < 0) throw new Error(`the before shot came after 18:30 (${await ev(clock)})`);
     await sleep(left);
-    say("  after:", await ev(clock), "|", await ev(tik));
+    say("  after:", await ev(clock), "|", await ev(tiktokRow));
   }],
 ];
 
@@ -342,7 +342,7 @@ for (const [name, query, setup, size] of scenes) {
     say("ERROR", name, String(e.message ?? e).slice(0, 300));
   }
 }
-writeFileSync(join(out, "cekim.txt"), log.join("\n") + "\n");
+writeFileSync(join(out, "capture.txt"), log.join("\n") + "\n");
 ws.close();
 proc.kill();
 await sleep(500);

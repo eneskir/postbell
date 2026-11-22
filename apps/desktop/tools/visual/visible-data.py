@@ -1,14 +1,14 @@
-# Builds fixture data for a visible window check in the temp folder: python -I -X utf8 apps/desktop/tools/visual/gorunur-veri.py [--pencere-klasoru <path>]
-# `--pencere-klasoru` also copies globex there, since the screen tool cannot type a path into a Windows folder window.
+# Builds fixture data for a visible window check in the temp folder: python -I -X utf8 apps/desktop/tools/visual/visible-data.py [--window-folder <path>]
+# `--window-folder` also copies globex there, since the screen tool cannot type a path into a Windows folder window.
 import json, pathlib, shutil, sys, tempfile, time
 
 REPO = pathlib.Path(__file__).resolve().parents[4]
-root = pathlib.Path(tempfile.gettempdir()) / f"postbell-gorunur-{int(time.time())}"
+root = pathlib.Path(tempfile.gettempdir()) / f"postbell-visible-{int(time.time())}"
 (root / "data").mkdir(parents=True)
 for name in ("initech", "globex"):
     shutil.copytree(REPO / "contracts/fixtures" / name, root / "brands" / name)
-if "--pencere-klasoru" in sys.argv:
-    target = pathlib.Path(sys.argv[sys.argv.index("--pencere-klasoru") + 1]) / "globex"
+if "--window-folder" in sys.argv:
+    target = pathlib.Path(sys.argv[sys.argv.index("--window-folder") + 1]) / "globex"
     shutil.copytree(REPO / "contracts/fixtures/globex", target)
     print("for the folder window:", target)
 

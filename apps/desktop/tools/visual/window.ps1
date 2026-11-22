@@ -1,6 +1,6 @@
-# Lists a process's top-level windows; -Geri restores and focuses the "Postbell" window without touching the screen.
-# Usage: powershell -NoProfile -ExecutionPolicy Bypass -File pencere.ps1 -ProcId <pid> [-Geri]
-param([int]$ProcId, [switch]$Geri)
+# Lists a process's top-level windows; -Restore restores and focuses the "Postbell" window without touching the screen.
+# Usage: powershell -NoProfile -ExecutionPolicy Bypass -File window.ps1 -ProcId <pid> [-Restore]
+param([int]$ProcId, [switch]$Restore)
 Add-Type @"
 using System; using System.Text; using System.Runtime.InteropServices; using System.Collections.Generic;
 public static class Pw {
@@ -24,7 +24,7 @@ foreach ($h in [Pw]::Of($ProcId)) {
   $t = New-Object System.Text.StringBuilder 256; [void][Pw]::GetWindowText($h, $t, 256)
   $c = New-Object System.Text.StringBuilder 256; [void][Pw]::GetClassName($h, $c, 256)
   "$h | $t | $c | visible=$([Pw]::IsWindowVisible($h)) iconic=$([Pw]::IsIconic($h))"
-  if ($Geri -and $t.ToString() -eq "Postbell") {
+  if ($Restore -and $t.ToString() -eq "Postbell") {
     [void][Pw]::ShowWindow($h, 9); Start-Sleep -Milliseconds 200; [void][Pw]::SetForegroundWindow($h)
     "restored: $h iconic=$([Pw]::IsIconic($h))"
   }
