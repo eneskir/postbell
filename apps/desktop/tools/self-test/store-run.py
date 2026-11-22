@@ -33,7 +33,7 @@ def check(cond, what):
     global ok
     ok &= bool(cond); say("  [" + ("pass" if cond else "FAIL") + "]", what)
 
-a = base / "a"; a.mkdir(); (a / "store.json").write_text(json.dumps(seed, indent=2), encoding="utf-8")
+a = base / "a"; a.mkdir(); seed_text = json.dumps(seed, indent=2); (a / "store.json").write_text(seed_text, encoding="utf-8")
 say("1. write, force kill, reopen; data folder", a)
 r1 = base / "r1.json"
 p = subprocess.Popen([str(EXE), "--self-test", str(r1), "--self-test-add-record", "--self-test-stay", "--data-dir", str(a)])
@@ -41,6 +41,8 @@ check(wait_file(r1), "report written (process stayed open)")
 say("  dump:", rendered(r1))
 h1 = sha(a / "store.json"); rec = json.loads((a / "store.json").read_text(encoding="utf-8"))["records"]
 say("  store hash:", h1, "records:", rec)
+check(json.loads((a / "store.json").read_text(encoding="utf-8"))["version"] == 2, "the version 1 seed was written back as version 2")
+check((a / "store.v1.json").exists() and (a / "store.v1.json").read_text(encoding="utf-8") == seed_text, "the version 1 file was kept as store.v1.json, unchanged")
 check(p.poll() is None, f"process {p.pid} is still running")
 k = subprocess.run(["taskkill", "/F", "/PID", str(p.pid)], capture_output=True, text=True)
 say("  taskkill:", k.returncode, k.stdout.strip())
@@ -65,7 +67,7 @@ check("unreadable" in d3 and (b / "store.json").read_text(encoding="utf-8") == "
 check("Daralt" not in d3, "no collapse button drawn for an unreadable store (its menu setting cannot be saved)")
 check(len(copies) == 1 and (b / copies[0]).read_text(encoding="utf-8") == "{broken", f"copy taken: {copies}")
 
-c = base / "c"; c.mkdir(); newer = '{"version": 2, "future": true}'; (c / "store.json").write_text(newer, encoding="utf-8")
+c = base / "c"; c.mkdir(); newer = '{"version": 3, "future": true}'; (c / "store.json").write_text(newer, encoding="utf-8")
 say("3. store from a newer version; data folder", c)
 r4 = base / "r4.json"; rc = run(["--self-test", str(r4), "--self-test-add-record", "--data-dir", str(c)])
 d4 = rendered(r4); say("  exit", rc, "dump:", d4)

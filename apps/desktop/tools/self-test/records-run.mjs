@@ -135,6 +135,7 @@ try {
   await press(a, "Bu paylaşımı atla");
   const r1 = records();
   check(r1.length === 2 && r1.some((r) => r.share === first && r.status === "done") && r1.some((r) => r.share !== first && r.status === "skipped"), "two records: the marked one done, the other skipped");
+  check(r1.every((r) => typeof r.title === "string" && /^2026-11-1[23]T[0-9]{2}:[0-9]{2}$/.test(r.planned ?? "")), "each record carries its content title and planned time (store version 2)");
   check(!readdirSync(data).some((f) => f.includes(".tmp")), "no temp file left");
   const h1 = digest();
   a.close();
