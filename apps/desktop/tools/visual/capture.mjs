@@ -240,6 +240,67 @@ const scenes = [
     await sleep(300);
     say("  enter:", await ev(`document.querySelector("aside.panel h2")?.innerText ?? "no panel"`));
   }],
+  ["history_v1--default", "?store=history", async () => { await tap(".nav-row", "Geçmiş"); await away(); }],
+  ["history_v1--empty", "", async () => { await tap(".nav-row", "Geçmiş"); await away(); }],
+  ["history_v1--loading", "?store=history&packages=wait", async () => { await tap(".nav-row", "Geçmiş"); await away(); }],
+  ["history_v1--error", "?store=corrupt", async () => { await tap(".nav-row", "Geçmiş"); await away(); }],
+  ["history_v1--filter-open", "?store=history", async () => { await tap(".nav-row", "Geçmiş"); await tap(".history-filter"); }],
+  ["app--history-skipped", "?store=history", async () => {
+    await tap(".nav-row", "Geçmiş");
+    await tap(".history-filter");
+    await tap('[role="menuitemradio"]', "Atlananlar");
+    await away();
+  }],
+  ["app--history-tip", "?store=history", async () => {
+    await tap(".nav-row", "Geçmiş");
+    await away();
+    await hover(".share-row-main", "The dog hiding in the corner");
+    await sleep(900);
+    say("  tip:", await ev(`document.querySelector(".tip")?.innerText ?? "no tip"`));
+  }],
+  ["app--history-gone", "?store=history", async () => {
+    await tap(".nav-row", "Geçmiş");
+    await away();
+    await hover(".share-row-main", "initech-2026-11-11-old-letter");
+    await sleep(900);
+    say("  gone:", await ev(`[...document.querySelectorAll("[data-undo]")].filter((b) => b.disabled).length + " disabled of " + document.querySelectorAll("[data-undo]").length + " | " + (document.querySelector(".tip")?.innerText ?? "no tip")`));
+  }],
+  // Five opens of Geçmiş with 5,000 records: click to the first painted frame with the first page in place (budget 200 ms).
+  ["app--history-5000", "?store=many", async () => {
+    await tap(".nav-row", "Ana sayfa");
+    const runs = [];
+    for (let i = 0; i < 5; i++) {
+      runs.push(
+        await ev(`new Promise((done) => {
+          const go = [...document.querySelectorAll(".nav-row")].find((e) => e.innerText.trim() === "Geçmiş");
+          const t0 = performance.now();
+          go.click();
+          const wait = () => (document.querySelector(".history-more") ? requestAnimationFrame(() => setTimeout(() => done(Math.round(performance.now() - t0)))) : requestAnimationFrame(wait));
+          wait();
+        })`),
+      );
+      await tap(".nav-row", "Ana sayfa");
+      await sleep(300);
+    }
+    await tap(".nav-row", "Geçmiş");
+    await away();
+    await ev(`document.querySelector(".history-more").scrollIntoView({ block: "center" })`);
+    await tap(".history-more .button");
+    say("  after more:", await ev(`document.querySelectorAll("[data-undo]").length + " | " + (document.querySelector(".history-more")?.innerText ?? "no more")`));
+    say("  open ms:", runs.join(", "), "| rows", await ev(`document.querySelectorAll("[data-undo]").length`), "|", await ev(`document.querySelector(".history-more").innerText`));
+  }],
+  ["app--history-undo", "?store=history", async () => {
+    await tap(".nav-row", "Geçmiş");
+    await ev(`document.querySelector('[data-undo="initech/initech-2026-11-12-hidden-dog/instagram-reels"]').focus()`);
+    await keyboard();
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+    await sleep(300);
+    say("  after undo:", await ev(`document.querySelector(".page-summary").innerText + " | focus " + (document.activeElement.dataset.undo ?? document.activeElement.tagName)`));
+    await open("Initech", "Bugün");
+    await away();
+    say("  today:", await ev(`[...document.querySelectorAll(".share-group")].map((g) => g.querySelector(".share-group-label").innerText.replace(/\\s+/g, " ") + ": " + [...g.querySelectorAll(".share-platform")].map((p) => p.innerText).join(", ")).join(" | ")`));
+  }],
   ["brand-new_v1--default", "", async () => { await tap(".nav-row", "Marka ekle"); await away(); }],
   ["brand-settings_v1--default", "", async () => { await settings(); await away(); }],
   ["brand-settings_v1--remove-confirm", "", async () => { await settings(); await tap("button", "Kaldır…"); await away(); }],

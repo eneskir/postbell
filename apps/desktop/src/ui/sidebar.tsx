@@ -205,7 +205,7 @@ function Tip({ label, children }: { label: string; children: ReactElement }) {
     <Tooltip.Root open={narrow && open} onOpenChange={(next) => setOpen(narrow && next)}>
       <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className="nav-tip" side="right" sideOffset={TIP_OFFSET}>
+        <Tooltip.Content className="tip" side="right" sideOffset={TIP_OFFSET}>
           {label}
         </Tooltip.Content>
       </Tooltip.Portal>

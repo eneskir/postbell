@@ -1,7 +1,8 @@
 import type { ContentFile, Language, Platform } from "../core/manifest.ts";
 import type { SetupStep } from "../core/accounts.ts";
 import type { ContentGroup, ContentTag } from "../core/contents.ts";
-import { networkOf, plannedDate, type Network, type Share, type TodayGroups } from "../core/shares.ts";
+import type { HistoryFilter } from "../core/history.ts";
+import { networkOf, plannedDate, type Network, type Share, type ShareRecord, type TodayGroups } from "../core/shares.ts";
 import { DAY, dateOf, formatTime, timeOf, type LocalDate, type LocalMs, type TimeOfDay } from "../core/time.ts";
 import type { PackageRejection } from "../core/packages.ts";
 import type { BrandProblem } from "../core/today.ts";
@@ -358,6 +359,33 @@ export const text = {
       pinterest: "Pinterest",
     } satisfies Record<Platform, string>,
   },
+  history: {
+    summary: (total: number, skipped: number) => {
+      const n = total.toLocaleString("tr-TR");
+      return skipped ? `${n} paylaşım, ${skipped.toLocaleString("tr-TR")}'${possessive(skipped)} atlandı.` : `${n} paylaşım.`;
+    },
+    loading: "Geçmiş yükleniyor…",
+    emptyTitle: "Geçmiş boş",
+    emptyBody: "Paylaştığın ya da atladığın paylaşımlar burada birikir.",
+    filterLabel: "Durum",
+    filters: { all: "Tüm durumlar", done: "Paylaşılanlar", skipped: "Atlananlar" } satisfies Record<HistoryFilter, string>,
+    noMatch: { all: "", done: "Paylaşılan yok.", skipped: "Atlanan yok." } satisfies Record<HistoryFilter, string>,
+    // «Bugün», «Dün · 10 Kasım Salı», else «9 Kasım Pazartesi».
+    day: (day: LocalDate, today: LocalDate) => {
+      const ms = Date.parse(`${day}T00:00:00Z`);
+      const diff = Math.round((Date.parse(`${today}T00:00:00Z`) - ms) / DAY);
+      const d = new Date(ms);
+      const full = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${DAYS[d.getUTCDay()]}`;
+      return diff === 0 ? "Bugün" : diff === 1 ? `Dün · ${full}` : full;
+    },
+    marked: (status: ShareRecord["status"], at: LocalMs) => {
+      const d = new Date(at);
+      return `${status === "done" ? "Paylaşıldı" : "Atlandı"} olarak işaretlendi: ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${formatTime(timeOf(at))}`;
+    },
+    gone: "İçerik klasörde yok; geri alınamaz.",
+    undone: "Geri alındı.",
+    more: (hidden: number) => `Daha eskileri göster (${hidden.toLocaleString("tr-TR")} kayıt)`,
+  },
   home: {
     emptyTitle: "Bugün paylaşım yok",
     emptyBody: "Haftaya bakmak için markanın takvimini aç.",
@@ -415,7 +443,7 @@ export const text = {
     mark: "Paylaşıldı olarak işaretle",
     undo: "Geri al",
     skip: "Bu paylaşımı atla",
-    skipNote: "Bitenler'den geri alınır.",
+    skipNote: "Geçmiş'ten geri alınır.",
   },
   toast: {
     copied: "Metin kopyalandı.",

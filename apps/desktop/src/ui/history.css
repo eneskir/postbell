@@ -1,0 +1,46 @@
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-l);
+  width: 100%;
+  max-width: var(--layout-content-max);
+}
+
+.history-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-s);
+}
+
+.history-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.history-filter:disabled {
+  opacity: var(--opacity-disabled);
+}
+
+.history-caret {
+  color: var(--color-text-muted);
+  font: var(--text-caption);
+}
+
+.share-undo:disabled {
+  opacity: var(--opacity-disabled);
+  text-decoration: none;
+}
+
+.history-more {
+  display: flex;
+  justify-content: center;
+}
+
+/* Placed by the page at the hovered row's top left corner. */
+.history-tip {
+  position: fixed;
+  transform: translateY(calc(-100% - var(--space-2xs)));
+  pointer-events: none;
+}

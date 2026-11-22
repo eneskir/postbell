@@ -4,7 +4,7 @@ import type { PackageDir } from "../../core/packages.ts";
 import { parseAlarmTarget, type AlarmPlan, type Port, type TrayTexts } from "../../core/port.ts";
 import type { Account, AccountId, BrandId, Network, ShareId, Times } from "../../core/shares.ts";
 import { emptyStore, serializeStore, withRecord, type StoreFile } from "../../core/store.ts";
-import { at, dateOf, parseDate, parseTime, type LocalDate, type TimeOfDay } from "../../core/time.ts";
+import { at, DAY, dateOf, parseDate, parseTime, type LocalDate, type TimeOfDay } from "../../core/time.ts";
 import { localNow } from "../clock.ts";
 
 const ROOT = "../../../../../contracts/fixtures/";
@@ -150,11 +150,34 @@ export const fakePort: Port = {
       if (scenario === "missing") store = emptyStore();
       if (scenario === "groups" && !store.groups.some((g) => g.id === "musteri-b"))
         store = { ...store, groups: [...store.groups, { id: "musteri-b", name: "Müşteri B", open: false, brands: [] }] };
-      if (scenario === "finished" && store.records.length === 0) {
+      if ((scenario === "finished" || scenario === "history") && store.records.length === 0) {
         const day = parseDate("2026-11-12") as LocalDate;
         const id = (p: string) => `initech/initech-2026-11-12-hidden-dog/${p}` as ShareId;
         store = withRecord(store, { share: id("instagram-reels"), status: "done", at: at(day, T("09:05")) });
         store = withRecord(store, { share: id("tiktok"), status: "skipped", at: at(day, T("10:00")) });
+      }
+      // `many`: 5,000 records of old contents over 100 days, for the history timing.
+      if (scenario === "many" && store.records.length === 0) {
+        const platforms = ["x", "instagram-reels", "tiktok", "youtube-shorts", "pinterest"];
+        const first = at(parseDate("2026-08-04") as LocalDate, T("09:00"));
+        const records = Array.from({ length: 5000 }, (_, i) => ({
+          share: `initech/initech-old-${Math.floor(i / 5)}/${platforms[i % 5]}` as ShareId,
+          status: i % 7 ? ("done" as const) : ("skipped" as const),
+          at: (first + Math.floor(i / 50) * DAY) as typeof first,
+        }));
+        store = { ...store, records };
+      }
+      // `history`: also records of earlier days whose packages are no longer in the folders, and one of Globex.
+      if (scenario === "history" && store.records.length === 2) {
+        const rec = (share: string, status: "done" | "skipped", date: string, time: string) => ({ share: share as ShareId, status, at: at(parseDate(date) as LocalDate, T(time)) });
+        for (const r of [
+          rec("globex/globex-2026-11-12-gizli-kopek/x", "done", "2026-11-12", "09:20"),
+          rec("initech/initech-2026-11-11-old-letter/x", "done", "2026-11-11", "09:02"),
+          rec("initech/initech-2026-11-11-old-letter/tiktok", "done", "2026-11-11", "18:41"),
+          rec("initech/initech-2026-11-11-old-letter/pinterest", "skipped", "2026-11-11", "20:10"),
+          rec("initech/initech-2026-11-09-first-light/x", "done", "2026-11-09", "09:00"),
+        ])
+          store = withRecord(store, r);
       }
       const text = scenario === "missing" ? null : scenario === "corrupt" ? "{bozuk" : scenario === "newer" ? '{"version": 2}' : serializeStore(store);
       return { ok: true, value: { path: "bellek (sahte kabuk)", text } };
