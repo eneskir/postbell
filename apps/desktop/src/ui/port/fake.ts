@@ -78,6 +78,7 @@ let backupFile = { passphrase: FAKE_PASSPHRASE, entries: new Map<string, FakeEnt
 let backupPicked = false;
 // `?backup=cancel`: every backup dialog is cancelled; `?backup=write`: saving fails.
 const backupScenario = () => new URLSearchParams(location.search).get("backup");
+const dataScenario = () => new URLSearchParams(location.search).get("data");
 // `?vault=error`: the Credential Manager cannot be opened.
 const vaultDown = (): { ok: false; error: { code: "vault-unavailable"; detail: string } } | null =>
   new URLSearchParams(location.search).get("vault") === "error" ? { ok: false, error: { code: "vault-unavailable", detail: "fake shell: ?vault=error" } } : null;
@@ -173,6 +174,30 @@ export const fakePort: Port = {
     async set(on) {
       if (new URLSearchParams(location.search).get("autostart") === "fail") return { ok: false, error: { code: "autostart-failed", detail: "fake shell: ?autostart=fail" } };
       (window as { postbellAutostart?: boolean }).postbellAutostart = on;
+      return { ok: true, value: undefined };
+    },
+  },
+  // The last saved file is kept in `window.postbellData`. The opened file is this store with «Gecikeni hatırlat» at 1 hour,
+  // «Son açık sayfa» and «Bilgisayar açılınca başlat» on. `?data=`: cancel, fail (the file cannot be written or read),
+  // bad (not a data file), newer (from a newer Postbell).
+  data: {
+    async save(name, text) {
+      const scenario = dataScenario();
+      if (scenario === "cancel") return { ok: true, value: null };
+      if (scenario === "fail") return { ok: false, error: { code: "data-write", detail: "fake shell: ?data=fail" } };
+      (window as { postbellData?: { name: string; text: string } }).postbellData = { name, text };
+      return { ok: true, value: name };
+    },
+    async open() {
+      const scenario = dataScenario();
+      if (scenario === "cancel") return { ok: true, value: null };
+      if (scenario === "fail") return { ok: false, error: { code: "data-read", detail: "fake shell: ?data=fail" } };
+      if (scenario === "bad") return { ok: true, value: "{ not a data file" };
+      if (scenario === "newer") return { ok: true, value: JSON.stringify({ version: 99 }) };
+      return { ok: true, value: serializeStore({ ...store, settings: { ...store.settings, reminderInterval: 60, startScreen: "last", launchAtLogin: true } }) };
+    },
+    async keep() {
+      (window as { postbellKept?: number }).postbellKept = ((window as { postbellKept?: number }).postbellKept ?? 0) + 1;
       return { ok: true, value: undefined };
     },
   },

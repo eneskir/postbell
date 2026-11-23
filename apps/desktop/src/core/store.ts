@@ -2,7 +2,7 @@ import { LANGUAGES, type Platform } from "./manifest.ts";
 import { validate, type Schema } from "./schema.ts";
 import { BRAND_PAGES, DEFAULT_SETTINGS, HOME, REMINDER_INTERVALS, START_SCREENS, type BrandPage, type Place, type Settings } from "./settings.ts";
 import { FORMATS, formatsOf, NETWORKS, TWO_STEP, type Account, type AccountDetails, type AccountId, type BrandId, type Network, type PlannedAt, type ShareId, type ShareRecord, type Times, type TwoStep } from "./shares.ts";
-import { formatLocal, formatTime, parseDate, parseLocal, parseTime, TIME_PATTERN, type LocalMs, type TimeOfDay } from "./time.ts";
+import { formatLocal, formatTime, parseDate, parseLocal, parseTime, TIME_PATTERN, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 
 // Version 2 added the account details (e-mail, 2-step type, recovery e-mail, note) and the title and planned time on
 // records; version 3 the vault backup state; version 4 the app settings and the last open page. An older file reads as
@@ -294,6 +294,16 @@ export function serializeStore(s: StoreFile): string {
   };
   return `${JSON.stringify(raw, null, 2)}\n`;
 }
+
+// «Veriler»: the exported file is the store itself, named by the day.
+export const dataFileName = (day: LocalDate): string => `postbell-veriler-${day}.json`;
+
+// An import replaces everything except this computer's own state: the vault backup record and the Run value.
+export const importedStore = (current: StoreFile, file: StoreFile): StoreFile => ({
+  ...file,
+  backup: current.backup,
+  settings: { ...file.settings, launchAtLogin: current.settings.launchAtLogin },
+});
 
 export const withRecord = (s: StoreFile, r: ShareRecord): StoreFile => ({
   ...s,

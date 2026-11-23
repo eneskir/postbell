@@ -1,6 +1,7 @@
 mod alarms;
 mod autostart;
 mod backup;
+mod data;
 mod dialog;
 mod log;
 mod media;
@@ -336,6 +337,54 @@ async fn vault_restore(app: AppHandle, passphrase: vault::Secret, accounts: Vec<
     logged(&log, done)
 }
 
+/// Asks where to save the data file and writes it; returns the file name, or `None` if cancelled.
+#[tauri::command]
+async fn data_save(app: AppHandle, name: String, text: String) -> Result<Option<String>, PortErr> {
+    let log = app.state::<Arc<log::Log>>().inner().clone();
+    if !data::valid_name(&name) {
+        return logged(&log, Err(PortErr::new("DATA_WRITE", "not a bare .json file name")));
+    }
+    let owner = dialog_owner(&app)?;
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = dialog::save_file(owner, &name)? else { return Ok(None) };
+        let path = PathBuf::from(path);
+        data::write(&path, &text)?;
+        Ok(Some(path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
+    })
+    .await
+    .map_err(|e| PortErr::new("DIALOG_FAILED", e))?;
+    if let Ok(Some(_)) = &done {
+        log.line("data: saved");
+    }
+    logged(&log, done)
+}
+
+/// Reads a data file the user picks; `None` if cancelled. The UI checks it like the store file before anything changes.
+#[tauri::command]
+async fn data_open(app: AppHandle) -> Result<Option<String>, PortErr> {
+    let log = app.state::<Arc<log::Log>>().inner().clone();
+    let owner = dialog_owner(&app)?;
+    let done = tauri::async_runtime::spawn_blocking(move || match dialog::open_file(owner, "json")? {
+        Some(path) => data::read(std::path::Path::new(&path)).map(Some),
+        None => Ok(None),
+    })
+    .await
+    .map_err(|e| PortErr::new("DIALOG_FAILED", e))?;
+    if let Ok(Some(text)) = &done {
+        log.line(&format!("data: opened {} bytes", text.len()));
+    }
+    logged(&log, done)
+}
+
+/// Copies the store before an import replaces it.
+#[tauri::command]
+fn data_keep(dir: State<DataDir>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    logged(&log, data::keep(&dir.0, secs))?;
+    log.line("data: store kept before import");
+    Ok(())
+}
+
 #[tauri::command]
 async fn dialog_pick_folder(app: AppHandle) -> Result<Option<String>, PortErr> {
     let owner = dialog_owner(&app)?;
@@ -582,7 +631,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
                 responder.respond(media::respond(path, request.method(), range, &app.state::<Arc<log::Log>>()));
             });
         })
-        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, autostart_set, vault_status, vault_write, vault_password, vault_copy, vault_delete, vault_backup, backup_pick, vault_restore])
+        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, autostart_set, vault_status, vault_write, vault_password, vault_copy, vault_delete, vault_backup, backup_pick, vault_restore, data_save, data_open, data_keep])
         .build(context)
         .expect("failed to start Postbell")
         // A password copied less than 30 seconds ago leaves with the app.

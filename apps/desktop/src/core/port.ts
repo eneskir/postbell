@@ -58,6 +58,13 @@ export interface Port extends ReadyPort {
   readonly autostart: {
     set(on: boolean): Promise<PortResult<void>>;
   };
+  // «Veriler»: the store as a JSON file through a Windows dialog (`src-tauri/src/data.rs`). `save` returns the file's name and
+  // `open` its text, both null when the dialog is cancelled; `keep` copies the store file before an import replaces it.
+  readonly data: {
+    save(name: string, text: string): Promise<PortResult<string | null>>;
+    open(): Promise<PortResult<string | null>>;
+    keep(): Promise<PortResult<void>>;
+  };
   // Passwords and backup codes in the Windows Credential Manager, one entry per account (`src-tauri/src/vault.rs`).
   // The UI never gets a backup code, and gets a password only from `password`; `copy` keeps it in the shell.
   readonly vault: {
@@ -148,13 +155,16 @@ export type PortErrorCode =
   | "backup-write"
   | "backup-failed"
   | "autostart-failed"
+  | "data-write"
+  | "data-read"
+  | "data-too-large"
   | "shell-unavailable";
 
 export type PortError = { readonly code: PortErrorCode; readonly detail: string };
 
 export type PortResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: PortError };
 
-const CODES: readonly PortErrorCode[] = ["store-read", "store-write", "store-newer-version", "store-backup", "folder-not-registered", "folder-missing", "folder-read", "dialog-failed", "file-missing", "file-type", "file-write", "open-failed", "vault-unavailable", "vault-too-large", "vault-not-found", "clipboard-failed", "backup-passphrase-short", "backup-empty", "backup-unreadable", "backup-not-picked", "backup-write", "backup-failed", "autostart-failed", "shell-unavailable"];
+const CODES: readonly PortErrorCode[] = ["store-read", "store-write", "store-newer-version", "store-backup", "folder-not-registered", "folder-missing", "folder-read", "dialog-failed", "file-missing", "file-type", "file-write", "open-failed", "vault-unavailable", "vault-too-large", "vault-not-found", "clipboard-failed", "backup-passphrase-short", "backup-empty", "backup-unreadable", "backup-not-picked", "backup-write", "backup-failed", "autostart-failed", "data-write", "data-read", "data-too-large", "shell-unavailable"];
 
 export function parsePortError(raw: unknown): PortError {
   const r = (typeof raw === "object" && raw !== null ? raw : {}) as { code?: unknown; detail?: unknown };
