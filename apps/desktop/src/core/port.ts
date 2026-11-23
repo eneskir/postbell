@@ -54,6 +54,10 @@ export interface Port extends ReadyPort {
   readonly tray: {
     set(texts: TrayTexts, hideOnClose: boolean): Promise<PortResult<void>>;
   };
+  // «Bilgisayar açılınca başlat»: a value in the user's Run key starts the app at sign-in, hidden in the tray (`src-tauri/src/autostart.rs`).
+  readonly autostart: {
+    set(on: boolean): Promise<PortResult<void>>;
+  };
   // Passwords and backup codes in the Windows Credential Manager, one entry per account (`src-tauri/src/vault.rs`).
   // The UI never gets a backup code, and gets a password only from `password`; `copy` keeps it in the shell.
   readonly vault: {
@@ -143,13 +147,14 @@ export type PortErrorCode =
   | "backup-not-picked"
   | "backup-write"
   | "backup-failed"
+  | "autostart-failed"
   | "shell-unavailable";
 
 export type PortError = { readonly code: PortErrorCode; readonly detail: string };
 
 export type PortResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: PortError };
 
-const CODES: readonly PortErrorCode[] = ["store-read", "store-write", "store-newer-version", "store-backup", "folder-not-registered", "folder-missing", "folder-read", "dialog-failed", "file-missing", "file-type", "file-write", "open-failed", "vault-unavailable", "vault-too-large", "vault-not-found", "clipboard-failed", "backup-passphrase-short", "backup-empty", "backup-unreadable", "backup-not-picked", "backup-write", "backup-failed", "shell-unavailable"];
+const CODES: readonly PortErrorCode[] = ["store-read", "store-write", "store-newer-version", "store-backup", "folder-not-registered", "folder-missing", "folder-read", "dialog-failed", "file-missing", "file-type", "file-write", "open-failed", "vault-unavailable", "vault-too-large", "vault-not-found", "clipboard-failed", "backup-passphrase-short", "backup-empty", "backup-unreadable", "backup-not-picked", "backup-write", "backup-failed", "autostart-failed", "shell-unavailable"];
 
 export function parsePortError(raw: unknown): PortError {
   const r = (typeof raw === "object" && raw !== null ? raw : {}) as { code?: unknown; detail?: unknown };

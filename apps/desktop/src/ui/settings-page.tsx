@@ -1,3 +1,5 @@
+import { useState } from "react";
+import type { PortErrorCode, PortResult } from "../core/port.ts";
 import { REMINDER_INTERVALS, START_SCREENS, type Settings } from "../core/settings.ts";
 import type { BackupState } from "../core/store.ts";
 import type { LocalDate } from "../core/time.ts";
@@ -8,6 +10,7 @@ import { text } from "./text.ts";
 type Props = {
   readonly settings: Settings;
   readonly change: (patch: Partial<Settings>) => void;
+  readonly changeLaunch: (on: boolean) => Promise<PortResult<void>>;
   readonly backup: BackupState;
   readonly today: LocalDate;
   readonly openSave: () => void;
@@ -17,7 +20,12 @@ type Props = {
 const t = text.settings;
 
 // `settings/V1 · default`; every value applies as soon as it changes, there is no save button.
-export function SettingsPage({ settings, change, backup, today, openSave, openRestore }: Props) {
+export function SettingsPage({ settings, change, changeLaunch, backup, today, openSave, openRestore }: Props) {
+  const [launchError, setLaunchError] = useState<PortErrorCode | null>(null);
+  const launch = async (on: boolean) => {
+    const r = await changeLaunch(on);
+    setLaunchError(r.ok ? null : r.error.code);
+  };
   return (
     <div className="page-body">
       <div className="settings">
@@ -44,6 +52,9 @@ export function SettingsPage({ settings, change, backup, today, openSave, openRe
               options={START_SCREENS.map((value) => ({ value, label: t.startScreenOption[value] }))}
               onChange={(startScreen) => change({ startScreen })}
             />
+          </SettingRow>
+          <SettingRow title={t.launchAtLogin} description={t.launchAtLoginNote} error={launchError && t.launchAtLoginFailed(launchError)} fieldId="setting-launch">
+            <Switch id="setting-launch" on={settings.launchAtLogin} onChange={(on) => void launch(on)} />
           </SettingRow>
           <SettingRow title={t.closeToTray} description={t.closeToTrayNote} fieldId="setting-tray">
             <Switch id="setting-tray" on={settings.closeToTray} onChange={(closeToTray) => change({ closeToTray })} />

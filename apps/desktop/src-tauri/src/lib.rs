@@ -1,4 +1,5 @@
 mod alarms;
+mod autostart;
 mod backup;
 mod dialog;
 mod log;
@@ -33,12 +34,21 @@ pub struct AppInfo {
 /// - `--self-test-add-record`: the UI adds a trial record during self-test.
 /// - `--self-test-stay`: keeps running, hidden, after the report.
 /// - `--data-dir <folder>`: keeps the store here instead of the app data folder.
+/// - `--background`: starts without showing the window; the Run value of «Bilgisayar açılınca başlat» passes it.
 #[derive(Debug, Default, PartialEq)]
 pub struct Options {
     pub self_test: Option<PathBuf>,
     pub add_record: bool,
     pub stay: bool,
     pub data_dir: Option<PathBuf>,
+    pub background: bool,
+}
+
+impl Options {
+    /// A test copy keeps its vault entries and its Run value apart from the real ones.
+    fn test_copy(&self) -> bool {
+        self.data_dir.is_some() || self.self_test.is_some()
+    }
 }
 
 pub fn parse_args(args: &[String]) -> Result<Options, String> {
@@ -56,6 +66,7 @@ pub fn parse_args(args: &[String]) -> Result<Options, String> {
         add_record: args.iter().any(|a| a == "--self-test-add-record"),
         stay: args.iter().any(|a| a == "--self-test-stay"),
         data_dir: value("--data-dir", "DATA_DIR_MISSING")?,
+        background: args.iter().any(|a| a == autostart::BACKGROUND),
     };
     if (o.add_record || o.stay) && o.self_test.is_none() {
         return Err("SELF_TEST_FLAG_ALONE: --self-test-add-record and --self-test-stay need --self-test".into());
@@ -214,6 +225,16 @@ fn tray_set(app: AppHandle, texts: String, hide_on_close: bool, tray: State<tray
     Ok(())
 }
 
+/// A debug build also writes the test key, so a development exe never starts at sign-in.
+#[tauri::command]
+fn autostart_set(on: bool, options: State<Options>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
+    let test = options.test_copy() || cfg!(debug_assertions);
+    let exe = std::env::current_exe().map_err(|e| PortErr::new("AUTOSTART_FAILED", e));
+    logged(&log, exe.and_then(|exe| autostart::set(on, test, &exe)))?;
+    log.line(&format!("autostart: {}{}", if on { "on" } else { "off" }, if test { " (test key)" } else { "" }));
+    Ok(())
+}
+
 /// A vault failure is logged with its code and detail, which never carry a secret (`vault::port_err`).
 fn logged<T>(log: &log::Log, r: Result<T, PortErr>) -> Result<T, PortErr> {
     if let Err(e) = &r {
@@ -349,6 +370,12 @@ fn ready(app: AppHandle, window: tauri::WebviewWindow, rendered: String, options
             }
             Ok(())
         }
+        None if options.background => {
+            if let Some(log) = app.try_state::<Arc<log::Log>>() {
+                log.line("window: hidden at start (--background)");
+            }
+            Ok(())
+        }
         None => {
             let r = window
                 .show()
@@ -389,6 +416,10 @@ fn second_instance(app: &AppHandle, argv: Vec<String>) {
         if let (Err(e), Some(log)) = (std::fs::write(PathBuf::from(mark), serde_json::to_string_pretty(&argv).unwrap_or_default()), app.try_state::<Arc<log::Log>>()) {
             log.line(&format!("SELF_TEST_WRITE: {e}"));
         }
+        return;
+    }
+    // A sign-in start while the app already runs leaves the window as it is.
+    if argv.iter().any(|a| a == autostart::BACKGROUND) {
         return;
     }
     show_main(app);
@@ -522,9 +553,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
             app.manage(service);
             app.manage(log.clone());
             app.manage(tray::Tray::new(&dir));
-            // A test copy (`--data-dir`, `--self-test`) keeps its entries apart from the real ones.
-            let options = app.state::<Options>();
-            let test = options.data_dir.is_some() || options.self_test.is_some();
+            let test = app.state::<Options>().test_copy();
             app.manage(vault::Vault::open(if test { vault::TEST_SERVICE } else { vault::SERVICE }));
             app.manage(BackupPick::default());
             app.manage(DataDir(dir));
@@ -553,7 +582,7 @@ fn run_app(options: Options, context: tauri::Context<tauri::Wry>, quit: bool) {
                 responder.respond(media::respond(path, request.method(), range, &app.state::<Arc<log::Log>>()));
             });
         })
-        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, vault_status, vault_write, vault_password, vault_copy, vault_delete, vault_backup, backup_pick, vault_restore])
+        .invoke_handler(tauri::generate_handler![app_info, ready, self_test_options, store_load, store_save, store_backup, packages_read, dialog_pick_folder, file_reveal, file_restore, share_page_open, alarms_set, tray_set, autostart_set, vault_status, vault_write, vault_password, vault_copy, vault_delete, vault_backup, backup_pick, vault_restore])
         .build(context)
         .expect("failed to start Postbell")
         // A password copied less than 30 seconds ago leaves with the app.
@@ -595,6 +624,7 @@ mod tests {
         assert!(parse_args(&args(&["postbell", "--data-dir"])).is_err());
         assert!(parse_args(&args(&["postbell", "--self-test-stay"])).is_err());
         let o = parse_args(&args(&["postbell", "--self-test", "r.json", "--self-test-add-record", "--self-test-stay", "--data-dir", "D:/v"])).unwrap();
-        assert_eq!(o, Options { self_test: Some("r.json".into()), add_record: true, stay: true, data_dir: Some("D:/v".into()) });
+        assert_eq!(o, Options { self_test: Some("r.json".into()), add_record: true, stay: true, data_dir: Some("D:/v".into()), background: false });
+        assert!(parse_args(&args(&["postbell", "--background"])).unwrap().background);
     }
 }
