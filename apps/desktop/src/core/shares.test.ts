@@ -6,7 +6,6 @@ import {
   deriveShares,
   FORMATS,
   lateCount,
-  LATE_AFTER_MIN,
   networkOf,
   NETWORKS,
   shareIdOf,
@@ -59,11 +58,16 @@ const C1X = shareIdOf(B, "c1" as ContentId, "x");
 test("status: upcoming before the time, due on the minute, late at the threshold", () => {
   assert.equal(only(input({ now: NOW("2026-11-11", "08:59") })).status.kind, "upcoming");
   assert.equal(only(input({ now: NOW("2026-11-11", "09:00") })).status.kind, "due");
-  const justBefore = (NOW("2026-11-11", "09:00") + LATE_AFTER_MIN * 60_000 - 1) as LocalMs;
-  assert.equal(only(input({ now: justBefore })).status.kind, "due");
-  assert.equal(LATE_AFTER_MIN, 30, "late threshold is 30 minutes");
+  const justBefore = (NOW("2026-11-11", "09:30") - 1) as LocalMs;
+  assert.equal(only(input({ now: justBefore })).status.kind, "due", "the default threshold is 30 minutes");
   assert.deepEqual(only(input({ now: NOW("2026-11-11", "09:30") })).status, { kind: "late", lateByMin: 30 });
   assert.deepEqual(only(input({ now: NOW("2026-11-11", "14:20") })).status, { kind: "late", lateByMin: 320 });
+});
+
+test("status: the late threshold is the «Gecikeni hatırlat» interval", () => {
+  assert.equal(only(input({ now: NOW("2026-11-11", "09:30"), lateAfterMin: 60 })).status.kind, "due");
+  assert.deepEqual(only(input({ now: NOW("2026-11-11", "10:00"), lateAfterMin: 60 })).status, { kind: "late", lateByMin: 60 });
+  assert.deepEqual(only(input({ now: NOW("2026-11-11", "09:15"), lateAfterMin: 15 })).status, { kind: "late", lateByMin: 15 });
 });
 
 test("marked gives done, skipped gives skipped; undo (record removed) derives from the time again", () => {

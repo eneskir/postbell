@@ -5,6 +5,7 @@ import type { HistoryFilter } from "../core/history.ts";
 import { networkOf, plannedDate, type Network, type Share, type ShareRecord, type TodayGroups, type TwoStep } from "../core/shares.ts";
 import { DAY, dateOf, formatTime, timeOf, type LocalDate, type LocalMs, type TimeOfDay } from "../core/time.ts";
 import type { PackageRejection } from "../core/packages.ts";
+import type { ReminderInterval, StartScreen } from "../core/settings.ts";
 import type { BrandProblem } from "../core/today.ts";
 import type { StickerName } from "./assets.gen.ts";
 
@@ -325,6 +326,21 @@ export const text = {
       `${removedParts(hasTimes, secret)} Postbell'den silinir. ${networkAtOf(n)}ki hesabına dokunulmaz. Bu işlem geri alınamaz.`,
     confirm: "Hesabı kaldır",
     cancel: "Vazgeç",
+  },
+  // Ayarlar › Bildirimler and Uygulama (`settings/V1 · default`, `· change-open`).
+  settings: {
+    notifyGroup: "Bildirimler",
+    notifyOnTime: "Saati gelince bildir",
+    reminder: "Gecikeni hatırlat",
+    reminderNote: "Bu kadar geciken paylaşımı yeniden hatırlatır.",
+    reminderOption: (min: ReminderInterval) => (min < 60 ? `${min} dakika sonra` : `${min / 60} saat sonra`),
+    appGroup: "Uygulama",
+    startScreen: "Açılış ekranı",
+    startScreenOption: { home: "Ana sayfa", last: "Son açık sayfa" } satisfies Record<StartScreen, string>,
+    closeToTray: "Kapatınca simgeye küçül",
+    closeToTrayNote: "Bildirimler gelmeye devam eder.",
+    on: "Açık",
+    off: "Kapalı",
   },
   // Ayarlar › Şifre kasası and its two dialogs (`settings/V1 · backup-dialog`, `· restore-dialog`, `· restore-error`).
   backup: {

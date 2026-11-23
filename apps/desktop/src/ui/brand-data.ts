@@ -43,4 +43,5 @@ export const sharesOf = (store: StoreFile, p: LoadedPackages, now: LocalMs): Sha
     records: store.records,
     missingFiles: p.missingFiles,
     now,
+    lateAfterMin: store.settings.reminderInterval,
   });

@@ -89,7 +89,7 @@ export const tauriPort: Port = {
     onOpen: (open) => subscribe("alarm-open", (payload) => open(parseAlarmTarget(payload))),
   },
   tray: {
-    set: (texts) => call<void>("tray_set", { texts: JSON.stringify(texts) }),
+    set: (texts, hideOnClose) => call<void>("tray_set", { texts: JSON.stringify(texts), hideOnClose }),
   },
   vault: {
     async status(accounts) {

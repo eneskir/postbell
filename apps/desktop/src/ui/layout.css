@@ -27,6 +27,9 @@
   --size-chip-skeleton: 66px;
   --size-sticker-row: 20px;
   --size-group-label: 32px;
+  --size-switch-width: 44px;
+  --size-switch-height: 24px;
+  --size-switch-knob: 20px;
   --size-tag: 24px;
   --size-window-button: 46px; /* Windows caption button width. */
   --size-thumb-width: 24px;

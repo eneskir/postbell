@@ -53,6 +53,18 @@ done = {**seed, "records": [{"share": "initech/initech-2026-11-12-hidden-dog/x",
 counts, _ = alarms_logged("b", done)
 check(counts and counts[-1] == 4, f"the marked share has no alarms: alarms: {counts}")
 
+v4 = {**seed, "version": 4, "backup": {}}
+say("3. «Saati gelince bildir» off; data folder", base / "c")
+counts, _ = alarms_logged("c", {**v4, "settings": {"notifyOnTime": False}})
+check(counts and counts[-1] == 0, f"no alarms with notifications off: alarms: {counts}")
+
+say("4. «Açılış ekranı: Son açık sayfa» on Initech's Takvim; data folder", base / "d")
+counts, _ = alarms_logged("d", {**v4, "settings": {"startScreen": "last"}, "lastPage": {"kind": "brand", "brand": "initech", "page": "calendar"}})
+shown = json.loads((base / "d.json").read_text(encoding="utf-8"))["rendered"]
+say("  rendered:", " | ".join(shown.splitlines())[:400])
+check("Takvim yükleniyor" in shown or "Bu hafta" in shown, "the app opened on the last page, Initech's Takvim")
+check(counts and counts[-1] == 6, f"the alarm list is unchanged: alarms: {counts}")
+
 say("RESULT:", "pass" if ok else "FAIL")
 if len(sys.argv) > 1:
     pathlib.Path(sys.argv[1]).write_text("\n".join(out) + "\n", encoding="utf-8")

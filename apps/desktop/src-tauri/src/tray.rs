@@ -1,6 +1,7 @@
 use crate::log::Log;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -22,15 +23,20 @@ pub struct Texts {
     pub hidden_body: String,
 }
 
-/// `texts` is `None` until the tray icon exists.
+/// `texts` is `None` until the tray icon exists. `hide_on_close` is «Kapatınca simgeye küçül»; off, closing quits.
 pub struct Tray {
     texts: Mutex<Option<Texts>>,
+    hide_on_close: AtomicBool,
     mark: PathBuf,
 }
 
 impl Tray {
     pub fn new(data_dir: &Path) -> Self {
-        Tray { texts: Mutex::new(None), mark: data_dir.join(NOTICE_MARK) }
+        Tray { texts: Mutex::new(None), hide_on_close: AtomicBool::new(true), mark: data_dir.join(NOTICE_MARK) }
+    }
+
+    pub fn set_hide_on_close(&self, on: bool) {
+        self.hide_on_close.store(on, Ordering::Relaxed);
     }
 
     fn texts(&self) -> Option<Texts> {
@@ -90,8 +96,12 @@ fn icon_image() -> Option<tauri::image::Image<'static>> {
     None
 }
 
-/// Hides the window instead of closing it while the tray icon exists; Tauri also routes the UI's `close` here.
+/// Hides the window instead of closing it while the tray icon exists and the setting is on; Tauri also routes the UI's `close` here.
 pub fn close_requested(window: &Window, tray: &Tray, log: &Arc<Log>) -> bool {
+    if !tray.hide_on_close.load(Ordering::Relaxed) {
+        log.line("window: closed (close to tray off)");
+        return false;
+    }
     let Some(texts) = tray.texts() else { return false };
     if let Err(e) = window.hide() {
         log.line(&format!("WINDOW_HIDE: {e}"));

@@ -161,10 +161,10 @@ export const fakePort: Port = {
       return () => window.removeEventListener("postbell-alarm-open", on);
     },
   },
-  // The last texts are kept in `window.postbellTray`.
+  // The last call is kept in `window.postbellTray`.
   tray: {
-    async set(texts) {
-      (window as { postbellTray?: TrayTexts }).postbellTray = texts;
+    async set(texts, hideOnClose) {
+      (window as { postbellTray?: { texts: TrayTexts; hideOnClose: boolean } }).postbellTray = { texts, hideOnClose };
       return { ok: true, value: undefined };
     },
   },

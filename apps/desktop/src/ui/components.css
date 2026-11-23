@@ -341,6 +341,48 @@
   white-space: nowrap;
 }
 
+.setting-select {
+  gap: var(--space-xs);
+}
+
+.switch-state {
+  color: var(--color-text-muted);
+  font: var(--text-label);
+}
+
+/* `control/toggle/off`: raised track, strong 1 px edge, muted knob 2 px in; `on`: accent track, dark knob on the right. */
+.switch {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--size-switch-width);
+  height: var(--size-switch-height);
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+}
+
+.switch[aria-checked="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.switch-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: var(--size-switch-knob);
+  height: var(--size-switch-knob);
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.switch[aria-checked="true"] .switch-knob {
+  left: calc(100% - var(--size-switch-knob) - 1px);
+  background: var(--color-on-accent);
+}
+
 .settings-actions {
   display: flex;
   gap: var(--space-xs);

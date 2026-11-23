@@ -10,10 +10,12 @@ import { markShare } from "../core/panel-steps.ts";
 import { contentRowOf, contentsView, skipLeft, type ContentRow } from "../core/contents.ts";
 import { contentKeyOf, fileKeyOf, formatsOf, lateCount, networkOf, type Account, type AccountId, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "../core/shares.ts";
 import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
+import type { Settings } from "../core/settings.ts";
 import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
 import { hasSecrets, vaultChangeOf, type VaultDraft } from "../core/vault.ts";
 import { backupAccountsOf, reminderOf, withBackupSaved, withReminderLater, withVaultChange } from "../core/backup.ts";
-import { RestoreDialog, SaveDialog, SettingsPage, type DialogResult } from "./backup.tsx";
+import { RestoreDialog, SaveDialog, type DialogResult } from "./backup.tsx";
+import { SettingsPage } from "./settings-page.tsx";
 import { AccountDetail, AccountForm, AccountsPage, type AccountSelection, type VaultView } from "./accounts-page.tsx";
 import { CalendarPage } from "./calendar-page.tsx";
 import { HistoryPage } from "./history-page.tsx";
@@ -29,7 +31,7 @@ import { HomePage } from "./home-page.tsx";
 import { alarmPlan } from "./notify.ts";
 import { PageContent } from "./pages.tsx";
 import { isRefreshKey } from "./refresh-keys.ts";
-import { HOME, rowPick, viewOf, type PanelState, type Route } from "./route.ts";
+import { HOME, rowPick, sameRoute, viewOf, type PanelState, type Route } from "./route.ts";
 import { SharePanel, type ShareActions } from "./share-panel.tsx";
 import { Shell, type PanelView } from "./shell.tsx";
 import { Sidebar } from "./sidebar.tsx";
@@ -91,6 +93,7 @@ export function App({ port }: { port: Port }) {
       setScreen(r.screen);
       setStore(r.store);
       storeRef.current = r.store;
+      if (attempt === 0 && r.store?.settings.startScreen === "last") setRoute(r.store.lastPage);
       if (r.store) {
         const n = ++reading.current;
         const p = await loadBrandPackages(port, r.store);
@@ -166,7 +169,12 @@ export function App({ port }: { port: Port }) {
         return r;
       });
       setPanel({ kind: "closed" });
-      if (r.kind === "brand" || r.kind === "brand-settings") update((s) => openBrand(s, r.brand));
+      // The brand form is never a last page: going back from it lands on the page it was opened from.
+      if (r.kind === "brand-new") return;
+      update((s) => {
+        const opened = r.kind === "brand" || r.kind === "brand-settings" ? openBrand(s, r.brand) : s;
+        return sameRoute(opened.lastPage, r) ? opened : { ...opened, lastPage: r };
+      });
     },
     [update],
   );
@@ -246,9 +254,12 @@ export function App({ port }: { port: Port }) {
     });
   }, [store, packages, shares, port]);
 
+  // Until the store is read the window closes to the tray, the default.
+  const closeToTray = store?.settings.closeToTray ?? true;
   useEffect(() => {
-    void port.tray.set(text.tray);
-  }, [port]);
+    void port.tray.set(text.tray, closeToTray);
+  }, [port, closeToTray]);
+  const changeSettings = useCallback((patch: Partial<Settings>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } })), [update]);
 
   useEffect(
     () =>
@@ -482,7 +493,7 @@ export function App({ port }: { port: Port }) {
     ) : store && settingsOf ? (
       <BrandSettingsPage key={settingsOf.id} store={store} brand={settingsOf} pickFolder={() => port.dialogs.pickFolder()} update={update} onRemove={(back) => askRemove(settingsOf.id, back)} />
     ) : route.kind === "settings" && store ? (
-      <SettingsPage backup={store.backup} today={dateOf(now)} openSave={openSaveBackup} openRestore={openRestoreBackup} />
+      <SettingsPage settings={store.settings} change={changeSettings} backup={store.backup} today={dateOf(now)} openSave={openSaveBackup} openRestore={openRestoreBackup} />
     ) : route.kind === "home" && store ? (
       <HomePage
         brands={packages ? brandStatesOf(store, packages) : null}

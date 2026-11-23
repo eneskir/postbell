@@ -1,4 +1,5 @@
 import type { Content, ContentFile, Language, Platform } from "./manifest.ts";
+import { DEFAULT_SETTINGS } from "./settings.ts";
 import { at, dateOf, MINUTE, parseDate, type LocalDate, type LocalMs, type TimeOfDay } from "./time.ts";
 
 export type BrandId = string & { readonly __brand: "BrandId" };
@@ -96,24 +97,24 @@ export type Share = {
   readonly blockers: readonly ShareBlocker[];
 };
 
-export const LATE_AFTER_MIN = 30;
-
 export type DeriveInput = {
   readonly contents: readonly Content[];
   readonly accounts: readonly Account[];
   readonly records: readonly ShareRecord[];
   readonly missingFiles: ReadonlySet<FileKey>;
   readonly now: LocalMs;
+  // «Gecikeni hatırlat»: a share this many minutes past its time is late.
+  readonly lateAfterMin?: number;
 };
 
 export const recordOf = (s: Share, status: ShareRecord["status"], at: LocalMs): ShareRecord => ({ share: s.id, status, at, title: s.content.title, planned: s.plannedAt });
 
-export function statusOf(planned: PlannedAt, record: ShareRecord | undefined, now: LocalMs): ShareStatus {
+export function statusOf(planned: PlannedAt, record: ShareRecord | undefined, now: LocalMs, lateAfterMin: number): ShareStatus {
   if (record) return { kind: record.status, at: record.at };
   if (planned.kind === "unscheduled") return { kind: "upcoming" };
   if (now < planned.at) return { kind: "upcoming" };
   const lateByMin = Math.floor((now - planned.at) / MINUTE);
-  return lateByMin < LATE_AFTER_MIN ? { kind: "due" } : { kind: "late", lateByMin };
+  return lateByMin < lateAfterMin ? { kind: "due" } : { kind: "late", lateByMin };
 }
 
 export function deriveShares(input: DeriveInput): Share[] {
@@ -141,7 +142,7 @@ export function deriveShares(input: DeriveInput): Share[] {
         file: entry.file,
         text: entry.text,
         aiLabel: entry.aiLabel,
-        status: statusOf(plannedAt, records.get(id), input.now),
+        status: statusOf(plannedAt, records.get(id), input.now, input.lateAfterMin ?? DEFAULT_SETTINGS.reminderInterval),
         blockers,
       });
     }
