@@ -111,9 +111,9 @@ impl Places {
         format!(r"{}Software\Microsoft\Windows\CurrentVersion\Uninstall\Postbell", self.reg_prefix)
     }
 
-    /// The start-at-login setting writes a "Postbell" value here.
+    /// «Bilgisayar açılınca başlat» writes its value here (`autostart.rs`).
     pub fn run_key(&self) -> String {
-        format!(r"{}Software\Microsoft\Windows\CurrentVersion\Run", self.reg_prefix)
+        format!("{}{}", self.reg_prefix, crate::autostart::RUN_KEY)
     }
 
     pub fn notification_key(&self, aumid: &str) -> String {
@@ -433,7 +433,7 @@ fn uninstall(ctx: &Ctx, remove_data: bool, progress: Progress) -> Result<(), Por
                 remove_link_if_ours(&p.start_menu.join(LINK), &p.exe())?;
                 remove_link_if_ours(&p.desktop.join(LINK), &p.exe())?
             }
-            UninstallStep::RunValue => win::reg_delete_value(&p.run_key(), "Postbell").map_err(|e| PortErr::new("UNINSTALL_REGISTRY_FAILED", e))?,
+            UninstallStep::RunValue => win::reg_delete_value(&p.run_key(), crate::autostart::VALUE).map_err(|e| PortErr::new("UNINSTALL_REGISTRY_FAILED", e))?,
             UninstallStep::UninstallEntry => win::reg_delete_tree(&p.uninstall_key()).map_err(|e| PortErr::new("UNINSTALL_REGISTRY_FAILED", e))?,
             UninstallStep::NsisLeftovers => nsis_leftovers(p)?,
             UninstallStep::InstallDir => remove_dir(&p.install_dir, PRODUCT_DIR, "UNINSTALL_DIR_LOCKED")?,

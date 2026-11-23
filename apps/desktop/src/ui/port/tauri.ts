@@ -91,6 +91,9 @@ export const tauriPort: Port = {
   tray: {
     set: (texts, hideOnClose) => call<void>("tray_set", { texts: JSON.stringify(texts), hideOnClose }),
   },
+  autostart: {
+    set: (on) => call<void>("autostart_set", { on }),
+  },
   vault: {
     async status(accounts) {
       const r = await call<unknown>("vault_status", { accounts });

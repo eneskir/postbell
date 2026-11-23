@@ -168,6 +168,14 @@ export const fakePort: Port = {
       return { ok: true, value: undefined };
     },
   },
+  // The last value is kept in `window.postbellAutostart`. `?autostart=fail`: the Run key cannot be written.
+  autostart: {
+    async set(on) {
+      if (new URLSearchParams(location.search).get("autostart") === "fail") return { ok: false, error: { code: "autostart-failed", detail: "fake shell: ?autostart=fail" } };
+      (window as { postbellAutostart?: boolean }).postbellAutostart = on;
+      return { ok: true, value: undefined };
+    },
+  },
   vault: {
     async status(accounts) {
       return vaultDown() ?? { ok: true, value: accounts.map((account) => ({ account, password: (vault.get(account)?.password ?? null) !== null, codes: vault.get(account)?.codes.length ?? 0 })) };

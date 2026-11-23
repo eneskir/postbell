@@ -65,6 +65,7 @@ export function App({ port }: { port: Port }) {
   const [vaultAttempt, setVaultAttempt] = useState(0);
   const [dev, setDev] = useState<Dev | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const autostartSynced = useRef(false);
   const [route, setRoute] = useState<Route>(HOME);
   const before = useRef<Route>(HOME);
   const reading = useRef(0);
@@ -94,6 +95,11 @@ export function App({ port }: { port: Port }) {
       setStore(r.store);
       storeRef.current = r.store;
       if (attempt === 0 && r.store?.settings.startScreen === "last") setRoute(r.store.lastPage);
+      // The Run value follows the saved setting once per start, so a moved exe or a value removed elsewhere is written again.
+      if (r.store && !autostartSynced.current) {
+        autostartSynced.current = true;
+        void port.autostart.set(r.store.settings.launchAtLogin);
+      }
       if (r.store) {
         const n = ++reading.current;
         const p = await loadBrandPackages(port, r.store);
@@ -260,6 +266,16 @@ export function App({ port }: { port: Port }) {
     void port.tray.set(text.tray, closeToTray);
   }, [port, closeToTray]);
   const changeSettings = useCallback((patch: Partial<Settings>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } })), [update]);
+  // The switch flips at once; a failed write turns it back unless it was flipped again meanwhile.
+  const changeLaunch = useCallback(
+    async (on: boolean) => {
+      changeSettings({ launchAtLogin: on });
+      const r = await port.autostart.set(on);
+      if (!r.ok) update((s) => (s.settings.launchAtLogin === on ? { ...s, settings: { ...s.settings, launchAtLogin: !on } } : s));
+      return r;
+    },
+    [port, changeSettings, update],
+  );
 
   useEffect(
     () =>
@@ -493,7 +509,7 @@ export function App({ port }: { port: Port }) {
     ) : store && settingsOf ? (
       <BrandSettingsPage key={settingsOf.id} store={store} brand={settingsOf} pickFolder={() => port.dialogs.pickFolder()} update={update} onRemove={(back) => askRemove(settingsOf.id, back)} />
     ) : route.kind === "settings" && store ? (
-      <SettingsPage settings={store.settings} change={changeSettings} backup={store.backup} today={dateOf(now)} openSave={openSaveBackup} openRestore={openRestoreBackup} />
+      <SettingsPage settings={store.settings} change={changeSettings} changeLaunch={changeLaunch} backup={store.backup} today={dateOf(now)} openSave={openSaveBackup} openRestore={openRestoreBackup} />
     ) : route.kind === "home" && store ? (
       <HomePage
         brands={packages ? brandStatesOf(store, packages) : null}
