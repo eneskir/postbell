@@ -37,7 +37,7 @@ mod tests {
 
     #[test]
     fn command_quotes_the_exe_and_adds_the_flag() {
-        assert_eq!(command(Path::new(r"C:\Users\Firstname Lastname\AppData\Local\Postbell\postbell.exe")), r#""C:\Users\Firstname Lastname\AppData\Local\Postbell\postbell.exe" --background"#);
+        assert_eq!(command(Path::new(r"D:\My Apps\Postbell\postbell.exe")), r#""D:\My Apps\Postbell\postbell.exe" --background"#);
     }
 
     #[test]
