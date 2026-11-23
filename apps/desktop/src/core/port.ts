@@ -49,9 +49,10 @@ export interface Port extends ReadyPort {
     set(plan: AlarmPlan): Promise<PortResult<void>>;
     onOpen(open: (target: AlarmTarget | null) => void): () => void;
   };
-  // The first call creates the tray icon, later calls update its texts. While it exists, closing hides the window and the app keeps running (`src-tauri/src/tray.rs`).
+  // The first call creates the tray icon, later calls update it. While it exists and `hideOnClose` is on («Kapatınca simgeye küçül»),
+  // closing hides the window and the app keeps running; off, closing quits (`src-tauri/src/tray.rs`).
   readonly tray: {
-    set(texts: TrayTexts): Promise<PortResult<void>>;
+    set(texts: TrayTexts, hideOnClose: boolean): Promise<PortResult<void>>;
   };
   // Passwords and backup codes in the Windows Credential Manager, one entry per account (`src-tauri/src/vault.rs`).
   // The UI never gets a backup code, and gets a password only from `password`; `copy` keeps it in the shell.

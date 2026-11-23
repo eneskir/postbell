@@ -174,6 +174,7 @@ const scenes = [
   ["contents_v1--nav-collapsed", "", async () => { await open("Initech", "İçerikler"); await ungroup(); await collapse(); await away(); }],
   ["settings_v1--nav-collapsed", "", async () => { await open(); await ungroup(); await tap(".nav-row", "Ayarlar"); await collapse(); await away(); }],
   ["settings_v1--default", "?store=backup", async () => { await tap(".nav-row", "Ayarlar"); await away(); }],
+  ["settings_v1--change-open", "?store=backup", async () => { await tap(".nav-row", "Ayarlar"); await tap("button", "30 dakika sonra"); }],
   ["settings_v1--backup-dialog", "?store=backup", async () => {
     await tap(".nav-row", "Ayarlar");
     await tap(".setting-control .button", "Yedek al");

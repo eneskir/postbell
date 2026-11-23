@@ -196,11 +196,12 @@ fn alarms_set(plan: String, service: State<Arc<alarms::Service>>, log: State<Arc
 
 /// Texts arrive as JSON text for the same reason as `alarms_set`.
 #[tauri::command]
-fn tray_set(app: AppHandle, texts: String, tray: State<tray::Tray>, options: State<Options>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
+fn tray_set(app: AppHandle, texts: String, hide_on_close: bool, tray: State<tray::Tray>, options: State<Options>, log: State<Arc<log::Log>>) -> Result<(), PortErr> {
     let texts = parse_json::<tray::Texts>(&texts).map_err(|e| {
         log.line(&format!("TRAY_REJECTED: {e}"));
         PortErr::new("TRAY_REJECTED", e)
     })?;
+    tray.set_hide_on_close(hide_on_close);
     if options.self_test.is_some() {
         log.line("tray: off (self-test)");
         return Ok(());
@@ -209,7 +210,7 @@ fn tray_set(app: AppHandle, texts: String, tray: State<tray::Tray>, options: Sta
         log.line(&format!("TRAY_FAILED: {e}"));
         PortErr::new("TRAY_FAILED", e)
     })?;
-    log.line("tray: on");
+    log.line(&format!("tray: on, close to tray {}", if hide_on_close { "on" } else { "off" }));
     Ok(())
 }
 

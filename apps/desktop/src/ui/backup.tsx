@@ -1,31 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { passphraseLongEnough } from "../core/backup.ts";
-import type { BackupState } from "../core/store.ts";
-import type { LocalDate } from "../core/time.ts";
 import { Button } from "./components.tsx";
-import { SettingRow, SettingsGroup } from "./settings.tsx";
 import { text } from "./text.ts";
-
-// Ayarlar holds only the vault group until the settings phase adds the others (`settings/V1 · default`).
-export function SettingsPage({ backup, today, openSave, openRestore }: { backup: BackupState; today: LocalDate; openSave: () => void; openRestore: () => void }) {
-  return (
-    <div className="page-body">
-      <div className="settings">
-        <SettingsGroup label={text.backup.group}>
-          <SettingRow title={text.backup.row} description={text.backup.rowNote}>
-            <span className="setting-value">{backup.last === undefined ? text.backup.never : text.backup.last(backup.last, today)}</span>
-            <Button variant="tertiary" onClick={openSave}>
-              {text.backup.save}
-            </Button>
-            <Button variant="tertiary" onClick={openRestore}>
-              {text.backup.restore}
-            </Button>
-          </SettingRow>
-        </SettingsGroup>
-      </div>
-    </div>
-  );
-}
 
 // What a dialog's action reports back: null when done (the dialog closes), else where to show the error.
 export type DialogResult = null | { readonly field: "passphrase" | "form"; readonly message: string };
