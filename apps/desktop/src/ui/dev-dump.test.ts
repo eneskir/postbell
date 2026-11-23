@@ -26,6 +26,7 @@ function stubPort(text: string | null, packages: Record<string, PackageDir[]> = 
     alarms: { set: async () => ({ ok: true, value: undefined }), onOpen: () => () => {} },
     tray: { set: async () => ({ ok: true, value: undefined }) },
     autostart: { set: async () => ({ ok: true, value: undefined }) },
+    data: { save: async () => ({ ok: true, value: null }), open: async () => ({ ok: true, value: null }), keep: async () => ({ ok: true, value: undefined }) },
     vault: {
       status: async () => ({ ok: true, value: [] }),
       write: async () => ({ ok: true, value: undefined }),

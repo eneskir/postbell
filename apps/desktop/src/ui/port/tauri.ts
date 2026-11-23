@@ -94,6 +94,11 @@ export const tauriPort: Port = {
   autostart: {
     set: (on) => call<void>("autostart_set", { on }),
   },
+  data: {
+    save: (name, text) => call<string | null>("data_save", { name, text }),
+    open: () => call<string | null>("data_open"),
+    keep: () => call<void>("data_keep"),
+  },
   vault: {
     async status(accounts) {
       const r = await call<unknown>("vault_status", { accounts });

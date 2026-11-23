@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Account, AccountId, BrandId, ShareId, ShareRecord } from "./shares.ts";
 import { DEFAULT_SETTINGS } from "./settings.ts";
-import { canWrite, emptyStore, parseStoreText, serializeStore, withoutRecord, withRecord, type StoreFile } from "./store.ts";
+import { canWrite, dataFileName, emptyStore, importedStore, parseStoreText, serializeStore, withoutRecord, withRecord, type StoreFile } from "./store.ts";
 import { at, parseDate, parseTime, type LocalDate, type TimeOfDay } from "./time.ts";
 
 const NOW = at(parseDate("2026-11-11") as LocalDate, parseTime("14:20") as TimeOfDay);
@@ -259,4 +259,12 @@ test("version 4: the last page is stored and read back the same, and checked", (
     [older(3).replace('"backup": {}', '"backup": {},\n  "lastPage": {"kind": "home"}'), { kind: "unreadable", reason: "invalid-shape", path: "lastPage", rule: "additionalProperties" }],
   ];
   for (const [t, expected] of cases) assert.deepEqual(parseStoreText(t), expected);
+});
+
+test("Veriler: the file is named by the day, and an import keeps this computer's vault backup state and Run value", () => {
+  assert.equal(dataFileName(parseDate("2026-11-23") as LocalDate), "postbell-veriler-2026-11-23.json");
+  const here: StoreFile = { ...full, backup: { last: at(parseDate("2026-11-03") as LocalDate, parseTime("10:00") as TimeOfDay) }, settings: { ...DEFAULT_SETTINGS, launchAtLogin: true } };
+  const file: StoreFile = { ...emptyStore(), settings: { ...DEFAULT_SETTINGS, reminderInterval: 60, launchAtLogin: false }, backup: { pending: "new-account" } };
+  assert.deepEqual(importedStore(here, file), { ...file, backup: here.backup, settings: { ...file.settings, launchAtLogin: true } });
+  assert.deepEqual(parseStoreText(serializeStore(full)), { kind: "ready", store: full }, "an exported file reads back as the same store");
 });

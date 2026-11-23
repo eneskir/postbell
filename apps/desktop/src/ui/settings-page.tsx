@@ -11,6 +11,9 @@ type Props = {
   readonly settings: Settings;
   readonly change: (patch: Partial<Settings>) => void;
   readonly changeLaunch: (on: boolean) => Promise<PortResult<void>>;
+  // Each returns the row's error text, or null.
+  readonly exportData: () => Promise<string | null>;
+  readonly importData: () => Promise<string | null>;
   readonly backup: BackupState;
   readonly today: LocalDate;
   readonly openSave: () => void;
@@ -20,8 +23,10 @@ type Props = {
 const t = text.settings;
 
 // `settings/V1 · default`; every value applies as soon as it changes, there is no save button.
-export function SettingsPage({ settings, change, changeLaunch, backup, today, openSave, openRestore }: Props) {
+export function SettingsPage({ settings, change, changeLaunch, exportData, importData, backup, today, openSave, openRestore }: Props) {
   const [launchError, setLaunchError] = useState<PortErrorCode | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const data = (run: () => Promise<string | null>) => async () => setDataError(await run());
   const launch = async (on: boolean) => {
     const r = await changeLaunch(on);
     setLaunchError(r.ok ? null : r.error.code);
@@ -68,6 +73,16 @@ export function SettingsPage({ settings, change, changeLaunch, backup, today, op
             </Button>
             <Button variant="tertiary" onClick={openRestore}>
               {text.backup.restore}
+            </Button>
+          </SettingRow>
+        </SettingsGroup>
+        <SettingsGroup label={t.dataGroup}>
+          <SettingRow title={t.data} description={t.dataNote} error={dataError}>
+            <Button variant="tertiary" onClick={data(exportData)}>
+              {t.export}
+            </Button>
+            <Button variant="tertiary" onClick={data(importData)}>
+              {t.import}
             </Button>
           </SettingRow>
         </SettingsGroup>

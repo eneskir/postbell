@@ -11,7 +11,7 @@ import { contentRowOf, contentsView, skipLeft, type ContentRow } from "../core/c
 import { contentKeyOf, fileKeyOf, formatsOf, lateCount, networkOf, type Account, type AccountId, type BrandId, type ContentId, type Share, type ShareId, type ShareRecord } from "../core/shares.ts";
 import { openBrand, sidebarOrder, toggleCollapsed } from "../core/sidebar.ts";
 import type { Settings } from "../core/settings.ts";
-import { withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
+import { dataFileName, importedStore, parseStoreText, serializeStore, withoutRecord, withRecord, type StoreFile } from "../core/store.ts";
 import { hasSecrets, vaultChangeOf, type VaultDraft } from "../core/vault.ts";
 import { backupAccountsOf, reminderOf, withBackupSaved, withReminderLater, withVaultChange } from "../core/backup.ts";
 import { RestoreDialog, SaveDialog, type DialogResult } from "./backup.tsx";
@@ -76,6 +76,7 @@ export function App({ port }: { port: Port }) {
   const dismissToast = useCallback((id: number) => setToast((t) => (t?.id === id ? null : t)), []);
   const [removing, setRemoving] = useState<{ readonly brand: BrandId; readonly back: HTMLElement | null } | null>(null);
   const [removingAccount, setRemovingAccount] = useState<{ readonly id: AccountId; readonly back: HTMLElement | null } | null>(null);
+  const [importing, setImporting] = useState<{ readonly store: StoreFile; readonly back: HTMLElement | null } | null>(null);
   const [backupDialog, setBackupDialog] = useState<{ readonly kind: "save"; readonly back: HTMLElement | null } | { readonly kind: "restore"; readonly path: string; readonly back: HTMLElement | null } | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const now = useNow();
@@ -267,6 +268,40 @@ export function App({ port }: { port: Port }) {
   }, [port, closeToTray]);
   const changeSettings = useCallback((patch: Partial<Settings>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } })), [update]);
   // The switch flips at once; a failed write turns it back unless it was flipped again meanwhile.
+  const exportData = async (): Promise<string | null> => {
+    const s = storeRef.current;
+    if (!s) return null;
+    const r = await port.data.save(dataFileName(dateOf(localNow())), serializeStore(s));
+    if (!r.ok) return text.settings.exportFailed(r.error.code);
+    if (r.value !== null) say(text.settings.exported(r.value));
+    return null;
+  };
+  // Nothing changes until the file reads as a store and the user confirms.
+  const importData = async (): Promise<string | null> => {
+    const back = activeBack();
+    const r = await port.data.open();
+    if (!r.ok) return text.settings.importFailed(r.error.code);
+    if (r.value === null) return null;
+    const file = parseStoreText(r.value);
+    if (file.kind === "newer-version") return text.settings.importNewer;
+    if (file.kind !== "ready") return text.settings.importNotData;
+    setImporting({ store: file.store, back });
+    return null;
+  };
+  const confirmImport = async () => {
+    const file = importing?.store;
+    setImporting(null);
+    focusBack(importing?.back);
+    if (!file) return;
+    const kept = await port.data.keep();
+    if (!kept.ok) return say(text.settings.importFailed(kept.error.code));
+    update((s) => importedStore(s, file));
+    say(text.settings.imported);
+  };
+  const cancelImport = () => {
+    setImporting(null);
+    focusBack(importing?.back);
+  };
   const changeLaunch = useCallback(
     async (on: boolean) => {
       changeSettings({ launchAtLogin: on });
@@ -509,7 +544,7 @@ export function App({ port }: { port: Port }) {
     ) : store && settingsOf ? (
       <BrandSettingsPage key={settingsOf.id} store={store} brand={settingsOf} pickFolder={() => port.dialogs.pickFolder()} update={update} onRemove={(back) => askRemove(settingsOf.id, back)} />
     ) : route.kind === "settings" && store ? (
-      <SettingsPage settings={store.settings} change={changeSettings} changeLaunch={changeLaunch} backup={store.backup} today={dateOf(now)} openSave={openSaveBackup} openRestore={openRestoreBackup} />
+      <SettingsPage settings={store.settings} change={changeSettings} changeLaunch={changeLaunch} exportData={exportData} importData={importData} backup={store.backup} today={dateOf(now)} openSave={openSaveBackup} openRestore={openRestoreBackup} />
     ) : route.kind === "home" && store ? (
       <HomePage
         brands={packages ? brandStatesOf(store, packages) : null}
@@ -770,6 +805,16 @@ export function App({ port }: { port: Port }) {
           cancel={text.removeBrand.cancel}
           onConfirm={confirmRemove}
           onCancel={cancelRemove}
+        />
+      )}
+      {importing && (
+        <ConfirmDialog
+          title={text.settings.importTitle}
+          body={text.settings.importBody}
+          confirm={text.settings.importConfirm}
+          cancel={text.settings.importCancel}
+          onConfirm={() => void confirmImport()}
+          onCancel={cancelImport}
         />
       )}
       {backupDialog?.kind === "save" && <SaveDialog save={saveBackup} onClose={closeBackup} />}
